@@ -1,0 +1,1 @@
+// WalletModal component

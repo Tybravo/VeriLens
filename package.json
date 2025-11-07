@@ -1,0 +1,26 @@
+{
+  "name": "verilens",
+  "version": "1.0.0",
+  "description": "StarFundMe - A Sui-based Media Provenance & Authenticity Layer",
+  "private": true,
+  "scripts": {
+    "dev": "pnpm --filter frontend dev",
+    "build": "pnpm --filter frontend build",
+    "test": "pnpm --filter typescript test",
+    "clean": "rm -rf node_modules **/node_modules pnpm-lock.yaml **/pnpm-lock.yaml",
+    "install:fresh": "pnpm clean && pnpm install --force"
+  },
+  "keywords": ["sui", "blockchain", "authenticity"],
+  "author": "",
+  "license": "ISC",
+  "packageManager": "pnpm@10.18.2",
+  "engines": {
+    "node": ">=18.0.0",
+    "pnpm": ">=8.0.0"
+  },
+  "pnpm": {
+    "overrides": {
+      "lru-cache": "7.18.3"
+    }
+  }
+}

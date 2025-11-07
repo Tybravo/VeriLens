@@ -1,0 +1,52 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    @apply bg-white text-gray-900;
+    font-feature-settings: "rlig" 1, "calt" 1;
+  }
+  
+  .text-turquoise {
+    color: #0097B2;
+  }
+  
+  .hover\:text-turquoise:hover {
+    color: #0097B2;
+  }
+}
+
+@layer components {
+  .container {
+    @apply w-full max-w-7xl mx-auto px-4;
+  }
+
+  .btn-primary {
+    @apply bg-primary text-white font-semibold py-3 px-6 rounded-lg border border-primary-light transition-all duration-300 inline-block no-underline hover:shadow-glow hover:bg-primary-light;
+  }
+
+  .btn-secondary {
+    @apply bg-secondary text-white font-semibold py-3 px-6 rounded-lg border border-secondary-light transition-all duration-300 inline-block no-underline hover:shadow-md hover:bg-secondary-light;
+  }
+  
+  /* Custom scrollbar styling */
+  .custom-scrollbar::-webkit-scrollbar {
+    width: 6px;
+  }
+  
+  .custom-scrollbar::-webkit-scrollbar-track {
+    background: rgba(6, 182, 212, 0.1);
+    border-radius: 10px;
+  }
+  
+  .custom-scrollbar::-webkit-scrollbar-thumb {
+    background: rgba(6, 182, 212, 0.5);
+    border-radius: 10px;
+  }
+  
+  .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+    background: rgba(6, 182, 212, 0.7);
+  }
+}
+
