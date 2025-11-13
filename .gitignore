@@ -16,6 +16,9 @@ dist-ssr
 #ENV File
 .env
 
+#Readme Delayed
+README.md
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json

@@ -6,17 +6,17 @@ module.exports = {
   theme: {
     extend: {
       colors: {
-        primary: { /* Deep Sky Blue */
-          DEFAULT: '#00BFFF',
+        primary: {
+          DEFAULT: '#0083D4', // Primary color
           foreground: '#ffffff',
-          light: '#87CEEB', /* Light Sky Blue */
-          dark: '#009ACD', /* Dodger Blue */
+          light: '#87CEEB', // Keeping existing light sky blue for primary
+          dark: '#009ACD', // Keeping existing dodger blue for primary
         },
-        secondary: { /* Vivid Purple */
-          DEFAULT: '#9932CC',
+        secondary: { /* Light Electric Purple */
+          DEFAULT: '#BA55D3', // Medium Orchid as default light electric purple
           foreground: '#ffffff',
-          light: '#BA55D3', /* Medium Orchid */
-          dark: '#8A2BE2', /* Blue Violet */
+          light: '#BA55D3', // Explicitly setting light to the same for now
+          dark: '#8A2BE2', // Keeping existing blue violet for secondary
         },
         accent: {
           DEFAULT: '#40E0D0',
@@ -29,12 +29,11 @@ module.exports = {
           light: '#1E2A3F',
           dark: '#051525',
         },
-        // Removed turquoise as it's replaced by primary/secondary colors
       },
       boxShadow: {
-        'glow': '0 0 10px 2px rgba(0, 191, 255, 0.7)', /* Deep Sky Blue glow */
-        'header': '0 4px 6px -1px rgba(0, 139, 139, 0.3)',
-        'button-glow': '0 0 15px rgba(0, 191, 255, 0.5)', /* Deep Sky Blue button glow */
+        'glow': '0 0 10px 2px rgba(15, 121, 187, 0.7)', /* New primary color glow */
+        'header': '0 4px 6px -1px rgba(15, 121, 187, 0.3)', /* New primary color for header shadow */
+        'button-glow': '0 0 15px rgba(186, 85, 211, 0.5)', /* New secondary color for button glow */
       },
     },
   },

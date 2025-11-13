@@ -8,20 +8,20 @@
     font-feature-settings: "rlig" 1, "calt" 1;
   }
   
-  .text-deepskyblue { /* New primary color */
-    color: #00BFFF;
+  .text-primary-color { /* New primary color */
+    color: #0083D4;
   }
   
-  .hover\:text-deepskyblue:hover {
-    color: #00BFFF;
+  .hover\:text-primary-color:hover {
+    color: #0083D4;
   }
 
-  .text-vividpurple { /* New secondary color */
-    color: #9932CC;
+  .text-secondary-color { /* New secondary color */
+    color: #BA55D3;
   }
 
-  .hover\:text-vividpurple:hover {
-    color: #9932CC;
+  .hover\:text-secondary-color:hover {
+    color: #BA55D3;
   }
 }
 
@@ -44,16 +44,16 @@
   }
   
   .custom-scrollbar::-webkit-scrollbar-track {
-    background: rgba(0, 191, 255, 0.1); /* Deep Sky Blue track */
+    background: rgba(0, 131, 212, 0.1); /* Primary color track */
     border-radius: 10px;
   }
   
   .custom-scrollbar::-webkit-scrollbar-thumb {
-    background: rgba(0, 191, 255, 0.5); /* Deep Sky Blue thumb */
+    background: rgba(0, 131, 212, 0.5); /* Primary color thumb */
     border-radius: 10px;
   }
   
   .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-    background: rgba(0, 191, 255, 0.7); /* Deep Sky Blue thumb hover */
+    background: rgba(0, 131, 212, 0.7); /* Primary color thumb hover */
   }
 }
