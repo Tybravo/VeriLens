@@ -7,16 +7,16 @@ module.exports = {
     extend: {
       colors: {
         primary: {
-          DEFAULT: '#20B2AA',
+          DEFAULT: '#0083D4', // Primary color
           foreground: '#ffffff',
-          light: '#48D1CC',
-          dark: '#008B8B',
+          light: '#87CEEB', // Keeping existing light sky blue for primary
+          dark: '#009ACD', // Keeping existing dodger blue for primary
         },
-        secondary: {
-          DEFAULT: '#FFD700',
-          foreground: '#000000',
-          light: '#FFFF99',
-          dark: '#DAA520',
+        secondary: { /* Light Electric Purple */
+          DEFAULT: '#BA55D3', // Medium Orchid as default light electric purple
+          foreground: '#ffffff',
+          light: '#BA55D3', // Explicitly setting light to the same for now
+          dark: '#8A2BE2', // Keeping existing blue violet for secondary
         },
         accent: {
           DEFAULT: '#40E0D0',
@@ -29,24 +29,11 @@ module.exports = {
           light: '#1E2A3F',
           dark: '#051525',
         },
-        turquoise: {
-          DEFAULT: '#0097B2',
-          50: '#E6F7FA',
-          100: '#CCEFF5',
-          200: '#99DFEB',
-          300: '#66CFE1',
-          400: '#33BFD7',
-          500: '#0097B2',
-          600: '#007A92',
-          700: '#005D72',
-          800: '#004052',
-          900: '#002332',
-        },
       },
       boxShadow: {
-        'glow': '0 0 10px 2px rgba(32, 178, 170, 0.7)',
-        'header': '0 4px 6px -1px rgba(0, 139, 139, 0.3)',
-        'button-glow': '0 0 15px rgba(32, 178, 170, 0.5)',
+        'glow': '0 0 10px 2px rgba(15, 121, 187, 0.7)', /* New primary color glow */
+        'header': '0 4px 6px -1px rgba(15, 121, 187, 0.3)', /* New primary color for header shadow */
+        'button-glow': '0 0 15px rgba(186, 85, 211, 0.5)', /* New secondary color for button glow */
       },
     },
   },
