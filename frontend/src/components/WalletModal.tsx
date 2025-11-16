@@ -16,6 +16,19 @@ const WalletModal: React.FC<WalletModalProps> = ({ isOpen, onClose }) => {
   const { mutate: disconnect } = useDisconnectWallet();
   const [connectingWallet, setConnectingWallet] = useState<string | null>(null);
   const [justConnected, setJustConnected] = useState(false);
+  const [copiedFull, setCopiedFull] = useState(false);
+  const [copiedShort, setCopiedShort] = useState(false);
+  const copyAddress = (target: 'full' | 'short') => {
+    if (!currentAccount) return;
+    navigator.clipboard.writeText(currentAccount.address);
+    if (target === 'full') {
+      setCopiedFull(true);
+      setTimeout(() => setCopiedFull(false), 1500);
+    } else {
+      setCopiedShort(true);
+      setTimeout(() => setCopiedShort(false), 1500);
+    }
+  };
 
   useEffect(() => {
     if (isOpen) document.body.style.overflow = 'hidden';
@@ -116,25 +129,47 @@ const WalletModal: React.FC<WalletModalProps> = ({ isOpen, onClose }) => {
                   </div>
                 </div>
                 
-                {/* Address Display with Copy Button */}
                 <div className="bg-darkblue border border-cyan-500/20 rounded-lg p-4 mb-4">
                   <p className="text-xs text-gray-400 mb-2">Wallet Address:</p>
                   <div className="flex items-center justify-between">
                     <span className="text-cyan-300 font-mono text-sm break-all">
                       {currentAccount.address}
                     </span>
+                    <button
+                      onClick={() => copyAddress('full')}
+                      className="ml-3 p-2 rounded hover:bg-darkblue-light"
+                      aria-label="Copy address"
+                    >
+                      {copiedFull ? (
+                        <svg className="w-5 h-5 text-green-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                        </svg>
+                      ) : (
+                        <svg className="w-5 h-5 text-cyan-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16h8M8 12h8M8 8h8M4 6a2 2 0 012-2h8l4 4v10a2 2 0 01-2 2H6a2 2 0 01-2-2V6z" />
+                        </svg>
+                      )}
+                    </button>
                   </div>
-                  
-                  {/* Short Address Display */}
                   <div className="mt-3 flex items-center justify-between bg-darkblue-light rounded-lg p-3">
                     <span className="text-cyan-300 font-mono text-base font-semibold">
                       {currentAccount.address.slice(0, 8)}...{currentAccount.address.slice(-6)}
                     </span>
-                    <div className="w-6 h-6 bg-green-400 rounded-full flex items-center justify-center">
-                      <svg className="w-3 h-3 text-darkblue" fill="currentColor" viewBox="0 0 20 20">
-                        <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                      </svg>
-                    </div>
+                    <button
+                      onClick={() => copyAddress('short')}
+                      className="p-2 rounded bg-cyan-500/20 hover:bg-cyan-500/30"
+                      aria-label="Copy address"
+                    >
+                      {copiedShort ? (
+                        <svg className="w-4 h-4 text-green-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                        </svg>
+                      ) : (
+                        <svg className="w-4 h-4 text-cyan-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16h8M8 12h8M8 8h8M4 6a2 2 0 012-2h8l4 4v10a2 2 0 01-2 2H6a2 2 0 01-2-2V6z" />
+                        </svg>
+                      )}
+                    </button>
                   </div>
                 </div>
                 

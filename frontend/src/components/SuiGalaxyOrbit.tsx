@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect, useRef, useState } from "react";
 
 /**
  * SuiGalaxyOrbit.tsx (Desktop & Mobile Versions - Fixed)
@@ -9,13 +9,13 @@ import React from "react";
 
 const orbitConfig = [
   {
-    radius: 120,
+    radiusRatio: 0.2,
     duration: 22,
     reverse: false,
     icons: ["/Walrus_icon.png", "/Seal_icon.png"],
   },
   {
-    radius: 200,
+    radiusRatio: 0.333,
     duration: 34,
     reverse: true,
     icons: ["/Verilens_icon.png", "/Nautilus_icon.png"],
@@ -25,13 +25,13 @@ const orbitConfig = [
 // Mobile version configuration
 const mobileOrbitConfig = [
   {
-    radius: 60,
+    radiusRatio: 0.22,
     duration: 22,
     reverse: false,
     icons: ["/Walrus_icon.png", "/Seal_icon.png"],
   },
   {
-    radius: 100,
+    radiusRatio: 0.357,
     duration: 34,
     reverse: true,
     icons: ["/Verilens_icon.png", "/Nautilus_icon.png"],
@@ -40,29 +40,46 @@ const mobileOrbitConfig = [
 
 // Desktop Version Component
 function DesktopOrbit() {
-  const calculatePosition = (index, totalIcons, radius) => {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [size, setSize] = useState<number>(600);
+
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    const ro = new ResizeObserver(() => {
+      const w = el.offsetWidth;
+      const h = el.offsetHeight;
+      setSize(Math.min(w, h));
+    });
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+
+  const calculatePosition = (index: number, totalIcons: number, radiusPx: number) => {
     const angle = (index * 2 * Math.PI) / totalIcons - Math.PI / 2;
-    const x = 300 + radius * Math.cos(angle);
-    const y = 300 + radius * Math.sin(angle);
+    const cx = size / 2;
+    const cy = size / 2;
+    const x = cx + radiusPx * Math.cos(angle);
+    const y = cy + radiusPx * Math.sin(angle);
     return { x, y };
   };
 
   return (
     <div className="w-full h-full flex items-center justify-center pointer-events-none select-none">
-      <div className="relative w-[600px] h-[600px]">
+      <div ref={containerRef} className="relative w-full max-w-[600px] aspect-square">
         {/* SVG rings */}
         <svg
-          width="600"
-          height="600"
+          width={size}
+          height={size}
           className="absolute top-0 left-0 pointer-events-none"
           style={{ filter: "drop-shadow(0 0 8px rgba(0,212,255,0.35))" }}
         >
           {orbitConfig.map((o, i) => (
             <circle
               key={i}
-              cx="300"
-              cy="300"
-              r={o.radius}
+              cx={size / 2}
+              cy={size / 2}
+              r={o.radiusRatio * size}
               stroke="rgba(0,212,255,0.18)"
               strokeWidth="2"
               fill="none"
@@ -74,7 +91,7 @@ function DesktopOrbit() {
               <stop offset="100%" stopColor="transparent" stopOpacity="0" />
             </radialGradient>
           </defs>
-          <circle cx="300" cy="300" r="6" fill="url(#gradCenter)" />
+          <circle cx={size / 2} cy={size / 2} r={6} fill="url(#gradCenter)" />
         </svg>
 
         {/* Central SUI Emboss Image */}
@@ -93,14 +110,15 @@ function DesktopOrbit() {
           }}
         >
           {orbitConfig[0].icons.map((src, idx) => {
-            const pos = calculatePosition(idx, orbitConfig[0].icons.length, orbitConfig[0].radius);
+            const radiusPx = orbitConfig[0].radiusRatio * size;
+            const pos = calculatePosition(idx, orbitConfig[0].icons.length, radiusPx);
             return (
               <div
                 key={idx}
                 className="absolute"
                 style={{
-                  left: `${pos.x}px`,
-                  top: `${pos.y}px`,
+                  left: `${(pos.x / size) * 100}%`,
+                  top: `${(pos.y / size) * 100}%`,
                   transform: "translate(-50%, -50%)",
                 }}
               >
@@ -142,14 +160,15 @@ function DesktopOrbit() {
           }}
         >
           {orbitConfig[1].icons.map((src, idx) => {
-            const pos = calculatePosition(idx, orbitConfig[1].icons.length, orbitConfig[1].radius);
+            const radiusPx = orbitConfig[1].radiusRatio * size;
+            const pos = calculatePosition(idx, orbitConfig[1].icons.length, radiusPx);
             return (
               <div
                 key={idx}
                 className="absolute"
                 style={{
-                  left: `${pos.x}px`,
-                  top: `${pos.y}px`,
+                  left: `${(pos.x / size) * 100}%`,
+                  top: `${(pos.y / size) * 100}%`,
                   transform: "translate(-50%, -50%)",
                 }}
               >
@@ -188,29 +207,46 @@ function DesktopOrbit() {
 
 // Mobile Version Component
 function MobileOrbit() {
-  const calculatePosition = (index, totalIcons, radius) => {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [size, setSize] = useState<number>(280);
+
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    const ro = new ResizeObserver(() => {
+      const w = el.offsetWidth;
+      const h = el.offsetHeight;
+      setSize(Math.min(w, h));
+    });
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+
+  const calculatePosition = (index: number, totalIcons: number, radiusPx: number) => {
     const angle = (index * 2 * Math.PI) / totalIcons - Math.PI / 2;
-    const x = 140 + radius * Math.cos(angle);
-    const y = 140 + radius * Math.sin(angle);
+    const cx = size / 2;
+    const cy = size / 2;
+    const x = cx + radiusPx * Math.cos(angle);
+    const y = cy + radiusPx * Math.sin(angle);
     return { x, y };
   };
 
   return (
     <div className="w-full h-full flex items-center justify-center pointer-events-none select-none">
-      <div className="relative" style={{ width: "280px", height: "280px" }}>
+      <div ref={containerRef} className="relative w-full max-w-[280px] aspect-square">
         {/* SVG rings */}
         <svg
-          width="280"
-          height="280"
+          width={size}
+          height={size}
           className="absolute top-0 left-0 pointer-events-none"
           style={{ filter: "drop-shadow(0 0 6px rgba(0,212,255,0.35))" }}
         >
           {mobileOrbitConfig.map((o, i) => (
             <circle
               key={i}
-              cx="140"
-              cy="140"
-              r={o.radius}
+              cx={size / 2}
+              cy={size / 2}
+              r={o.radiusRatio * size}
               stroke="rgba(0,212,255,0.25)"
               strokeWidth="2"
               fill="none"
@@ -222,7 +258,7 @@ function MobileOrbit() {
               <stop offset="100%" stopColor="transparent" stopOpacity="0" />
             </radialGradient>
           </defs>
-          <circle cx="140" cy="140" r="5" fill="url(#gradCenterMobile)" />
+          <circle cx={size / 2} cy={size / 2} r={5} fill="url(#gradCenterMobile)" />
         </svg>
 
         {/* Central SUI Emboss Image */}
@@ -242,14 +278,15 @@ function MobileOrbit() {
           }}
         >
           {mobileOrbitConfig[0].icons.map((src, idx) => {
-            const pos = calculatePosition(idx, mobileOrbitConfig[0].icons.length, mobileOrbitConfig[0].radius);
+            const radiusPx = mobileOrbitConfig[0].radiusRatio * size;
+            const pos = calculatePosition(idx, mobileOrbitConfig[0].icons.length, radiusPx);
             return (
               <div
                 key={idx}
                 className="absolute"
                 style={{
-                  left: `${pos.x}px`,
-                  top: `${pos.y}px`,
+                  left: `${(pos.x / size) * 100}%`,
+                  top: `${(pos.y / size) * 100}%`,
                   transform: "translate(-50%, -50%)",
                 }}
               >
@@ -291,14 +328,15 @@ function MobileOrbit() {
           }}
         >
           {mobileOrbitConfig[1].icons.map((src, idx) => {
-            const pos = calculatePosition(idx, mobileOrbitConfig[1].icons.length, mobileOrbitConfig[1].radius);
+            const radiusPx = mobileOrbitConfig[1].radiusRatio * size;
+            const pos = calculatePosition(idx, mobileOrbitConfig[1].icons.length, radiusPx);
             return (
               <div
                 key={idx}
                 className="absolute"
                 style={{
-                  left: `${pos.x}px`,
-                  top: `${pos.y}px`,
+                  left: `${(pos.x / size) * 100}%`,
+                  top: `${(pos.y / size) * 100}%`,
                   transform: "translate(-50%, -50%)",
                 }}
               >

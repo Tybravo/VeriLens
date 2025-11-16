@@ -1,8 +1,8 @@
+VeriLens — The Truth Engine for the Sui Ecosystem
+
 VeriLens a decentralized media verification and provenance platform that proves the authenticity and origin of digital content directly on-chain. 
 
-Built on SUI, it leverages Walrus for decentralized media storage, Nautilus for trusted authenticity attestations in TEE environments, and Seal for controlled access to original media.# VeriLens — The Truth Engine for the Sui Ecosystem
-
-VeriLens is a decentralized **media verification and provenance** platform that proves the authenticity and origin of digital content on‑chain. Built on **Sui**, VeriLens leverages **Walrus** for decentralized media storage, **Seal** for encryption & access control, and **Nautilus** for trusted off‑chain attestations inside TEEs. VeriLens lets creators publish provable media, and lets developers integrate Proof‑as‑a‑Service APIs into their dApps.
+VeriLens is a decentralized **media verification and provenance** platform that proves the authenticity and origin of digital content directly on‑chain. Built on **Sui**, VeriLens leverages **Walrus** for decentralized media storage, **Seal** for encryption & access control, and **Nautilus** for trusted off‑chain attestations inside TEEs. VeriLens lets creators publish provable media, and lets developers integrate Proof‑as‑a‑Service APIs into their dApps.
 
 ---
 
@@ -102,6 +102,70 @@ VeriLens/
 
 ---
 
+# How VeriLens Works for All Use Cases
+VeriLens provides a unified authenticity pipeline that works for all digital content types—images, videos, documents, AI‑generated media, logs, and Web3 assets. Every use case follows the same simple verification flow while allowing flexible metadata through a C2PA‑style manifest.
+
+---
+
+## 1. Manifest‑First Design (Flexible for All Use Cases)
+Every verification begins with a **JSON manifest** containing:
+- Core provenance fields (timestamps, content hashes)
+- Optional creator or device information
+- Use‑case‑specific metadata (AI model, document type, incident notes, etc.)
+
+This manifest acts as the **single source of truth** for the content’s origin.
+
+---
+
+## 2. Media + Manifest Stored on Walrus
+VeriLens uploads two items to Walrus decentralized storage:
+- The media file  
+- The metadata manifest  
+
+Each upload receives a **blob ID**, used later during verification.
+
+---
+
+## 3. Trusted Verification in a TEE
+Nautilus TEE verifies:
+- File integrity  
+- Manifest integrity  
+- Consistency of metadata  
+- No tampering in upload or processing  
+
+The TEE outputs a **signed attestation** proving the verification is trustworthy.
+
+---
+
+## 4. On‑Chain Provenance Certificate (Sui)
+After successful verification, VeriLens mints a **ProvenanceCertificate** containing:
+- Walrus blob IDs  
+- The TEE attestation  
+- Verification result  
+- Any custom manifest fields  
+
+This becomes a **permanent on‑chain proof** that any app, marketplace, or platform can query.
+
+---
+
+## 5. One Architecture, Endless Use Cases
+Because everything is driven by the flexible manifest:
+- No backend changes are required per use case  
+- Developers can pass custom metadata  
+- Creators can upload any kind of digital content  
+- Third‑party apps integrate easily via API or blob references  
+
+VeriLens supports AI art provenance, fact‑checking, document integrity, NFT verification, audit logs, journalism proofs, compliance workflows, and more—all using the same pipeline.
+
+---
+
+## Summary
+**Media + Manifest → Walrus → TEE Verification → On‑Chain Certificate**
+
+One simple workflow. Many powerful real‑world applications.
+
+---
+
 ## On‑chain & off‑chain responsibilities
 - **On‑chain (Move contracts)**
   - Store Walrus blob metadata as Move objects.
@@ -192,7 +256,7 @@ Notes:
 - [ ] Build `/app/creator/upload-content/page.tsx` UI using Next.js + Tailwind.
   - Form sections: (1) media file upload; (2) associated C2PA manifest upload.
   - Use `Header.tsx` and `Footer.tsx` in layout.
-- [ ] Implement Walrus upload service in backend; return two Walrus blob IDs.
+- [ ] Implement Walrus upload service in backend or use the SUI Client + SUI TypeScript SDK; return two Walrus blob IDs.
 - [ ] Store blob metadata on Sui (Move object) via `suiService`.
 - [ ] Implement backend endpoint to create verification request (call Move contract or push message to worker queue).
 - [ ] Build Nautilus worker prototype that fetches blobs and runs C2PA verification in a TEE (local dev may simulate attestation initially).

@@ -1,6 +1,7 @@
 'use client';
 
 import React from 'react';
+import { motion } from 'framer-motion';
 import Link from 'next/link';
 import Image from 'next/image';
 
@@ -12,14 +13,46 @@ const Footer = () => {
       <div className="max-w-7xl mx-auto">
         {/* Top Row: Powered by - Centered and Larger */}
         <div className="flex justify-center mb-10">
-          <span className="text-2xl sm:text-3xl font-bold text-secondary-light">Powered by</span>
+          <motion.span
+            className="text-2xl sm:text-3xl font-bold text-secondary-light"
+            initial={{ opacity: 0, y: 10 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true, amount: 0.6 }}
+            transition={{ duration: 0.5, ease: 'easeOut' }}
+          >
+            Powered by
+          </motion.span>
         </div>
 
         {/* Center Logos Row: Walrus, Nautilus, Seal - Centered and Below Title */}
         <div className="flex flex-col sm:flex-row items-center justify-center sm:space-x-12 space-y-6 sm:space-y-0 mb-12">
-          <img src="/walruslogo.png" alt="Walrus Logo" className="h-28 w-auto object-contain" />
-          <img src="/NautilusLogo.png" alt="Nautilus Logo" className="h-28 w-auto object-contain" />
-          <img src="/SealLogo.png" alt="Seal Logo" className="h-28 w-auto object-contain" />
+          <motion.img
+            src="/walruslogo.png"
+            alt="Walrus Logo"
+            className="h-28 w-auto object-contain"
+            initial={{ opacity: 0, y: 10 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true, amount: 0.5 }}
+            transition={{ duration: 0.5, ease: 'easeOut' }}
+          />
+          <motion.img
+            src="/NautilusLogo.png"
+            alt="Nautilus Logo"
+            className="h-28 w-auto object-contain"
+            initial={{ opacity: 0, y: 10 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true, amount: 0.5 }}
+            transition={{ delay: 0.1, duration: 0.5, ease: 'easeOut' }}
+          />
+          <motion.img
+            src="/SealLogo.png"
+            alt="Seal Logo"
+            className="h-28 w-auto object-contain"
+            initial={{ opacity: 0, y: 10 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true, amount: 0.5 }}
+            transition={{ delay: 0.2, duration: 0.5, ease: 'easeOut' }}
+          />
         </div>
 
         {/* Main Content Row: VeriLens Logo with Text | Social Icons */}

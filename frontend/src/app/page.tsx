@@ -16,36 +16,58 @@ const HomePage = () => {
         
         {/* LEFT SIDE - TEXT CONTENT */}
         <div className="md:w-1/2 space-y-6 text-left z-10 relative">
-          <h1 className="text-primary text-4xl md:text-5xl font-extrabold leading-tight">
+          <motion.h1
+            className="text-primary text-4xl md:text-5xl font-extrabold leading-tight"
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true, amount: 0.6 }}
+            transition={{ duration: 0.6, ease: 'easeOut' }}
+          >
             The Truth Engine for{' '}
             <br />
             <span className="text-secondary-light">
               SUI Ecosystem, dApp, Creators, and Media
             </span>
-          </h1>
+          </motion.h1>
 
-          <p className="text-lg md:text-xl text-gray-300 max-w-xl">
+          <motion.p
+            className="text-lg md:text-xl text-gray-300 max-w-xl"
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true, amount: 0.5 }}
+            transition={{ delay: 0.2, duration: 0.6, ease: 'easeOut' }}
+          >
             VeriLens lets developers build, creators verify, and journalists with
             audiences believe, together creating a transparent digital ecosystem.
-          </p>
+          </motion.p>
 
-          <div className="pt-6 flex gap-4">
-           <button className="bg-primary hover:bg-secondary-light px-6 py-3 rounded-2xl font-medium transition">
+          <motion.div
+            className="pt-6 flex gap-4"
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true, amount: 0.4 }}
+            transition={{ delay: 0.4, duration: 0.6, ease: 'easeOut' }}
+          >
+            <Link href="/creator/upload-content" className="bg-primary hover:bg-secondary-light px-6 py-3 rounded-2xl font-medium transition">
               Creator
-            </button>
+            </Link>
             <button className="border border-secondary-light px-6 py-3 rounded-2xl font-medium hover:bg-secondary-light hover:text-black transition">
               Developer
             </button>
-          </div>
+          </motion.div>
         </div>
 
         {/* RIGHT SIDE - DRONE IMAGE + LIGHT */}
         <div className="md:w-1/2 mt-12 md:mt-0 flex justify-center relative z-10">
           {/* Replaced DroneWithSpinningPropellers with Drone_Camera.gif */}
-          <img
+          <motion.img
             src="/DroneCamera.gif"
             alt="Drone capturing event"
             className="w-180 md:w-[22 8rem] h-auto object-contain relative z-10"
+            initial={{ opacity: 0, scale: 0.95 }}
+            whileInView={{ opacity: 1, scale: 1 }}
+            viewport={{ once: true, amount: 0.5 }}
+            transition={{ duration: 0.6, ease: 'easeOut' }}
           />
         </div>
       </section>
@@ -109,6 +131,9 @@ const HomePage = () => {
             boxShadow: '0 0 25px 5px rgba(15,121,187,0.6)',
           }}
           transition={{ type: 'spring', stiffness: 200, damping: 15 }}
+          initial={{ opacity: 0, y: 20 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true, amount: 0.3 }}
           className="bg-white/10 backdrop-blur-lg border border-blue-500/20 rounded-2xl p-6 hover:border-blue-400/50 active:border-blue-400/50 cursor-pointer"
         >
           <h3 className="text-2xl font-semibold text-blue-400 mb-2">For Creators</h3>
@@ -128,6 +153,9 @@ const HomePage = () => {
             boxShadow: '0 0 25px 5px rgba(15,121,187,0.6)',
           }}
           transition={{ type: 'spring', stiffness: 200, damping: 15 }}
+          initial={{ opacity: 0, y: 20 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true, amount: 0.3 }}
           className="bg-white/10 backdrop-blur-lg border border-blue-500/20 rounded-2xl p-6 hover:border-blue-400/50 active:border-blue-400/50 cursor-pointer"
         >
           <h3 className="text-2xl font-semibold text-blue-400 mb-2">For Developers</h3>
