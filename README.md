@@ -1,6 +1,6 @@
-VeriLens — The Truth Engine for the Sui Ecosystem
+## VeriLens — The Truth Engine for the Sui Ecosystem
 
-VeriLens a decentralized media verification and provenance platform that proves the authenticity and origin of digital content directly on-chain. 
+VeriLens a decentralized digital content verification and provenance layer on Sui that proves the authenticity and origin of digital content directly on-chain. 
 
 VeriLens is a decentralized **media verification and provenance** platform that proves the authenticity and origin of digital content directly on‑chain. Built on **Sui**, VeriLens leverages **Walrus** for decentralized media storage, **Seal** for encryption & access control, and **Nautilus** for trusted off‑chain attestations inside TEEs. VeriLens lets creators publish provable media, and lets developers integrate Proof‑as‑a‑Service APIs into their dApps.
 
@@ -300,8 +300,15 @@ Notes:
 
 ---
 
-## Licensing & attribution
-VeriLens is an open project. Add your preferred license (MIT/Apache‑2.0) and include attribution for any third‑party libs (C2PA libraries, Walrus SDKs, Nautilus templates).
+## Licensing & Third-Party Attributions
+VeriLens is a proprietary project. Apply your chosen commercial or private license and ensure proper attribution for any third-party components used (e.g., C2PA libraries, Walrus SDKs, Nautilus templates).
+
+VeriLens uses the following open-source components:
+
+- Walrus SDK — Copyright (c) Mysten Labs. Licensed under Apache-2.0.
+- Nautilus Templates — Copyright (c) Mysten Labs Licensed under the Apache 2.0.
+
+These components retain their respective open-source licenses.
 
 ---
 
