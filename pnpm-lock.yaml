@@ -23,10 +23,10 @@ importers:
         specifier: ^0.6.0
         version: 0.6.0(typescript@5.3.3)
       '@mysten/sui':
-        specifier: ^1.43.1
+        specifier: ^1.44.0
         version: 1.44.0(typescript@5.3.3)
       '@mysten/walrus':
-        specifier: ^0.2.0
+        specifier: ^0.2.3
         version: 0.2.3(typescript@5.3.3)
       '@react-three/drei':
         specifier: ^10.7.6
