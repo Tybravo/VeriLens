@@ -1,9 +1,12 @@
 'use client';
 
-import React, { useState, useRef, useCallback } from 'react';
-import { useCurrentAccount, useSuiClientContext } from '@mysten/dapp-kit';
+import React, { useState, useRef, useCallback, useMemo } from 'react';
+import { useCurrentAccount, useSuiClientContext, useSignAndExecuteTransaction, useSuiClient } from '@mysten/dapp-kit';
 import { motion } from 'framer-motion';
 import Image from 'next/image';
+import { SealClient } from "@mysten/seal";
+import { getFullnodeUrl, SuiClient } from '@mysten/sui/client';
+import { Transaction } from '@mysten/sui/transactions';
 
 interface UploadResponse {
   walrusMediaId: string;
@@ -18,31 +21,132 @@ interface SealEncryptionConfig {
   authorizedParties?: string[];
 }
 
+const SEAL_KEY_SERVERS = [
+  '0x73d05d62c18d9374e3ea529e8e0ed6161da1a141a94d3f76ae3fe4e99356db75',
+  '0xf5d14a81a982144ae441cd7d64b09027f116a468bd36e7eca494f750591623c8',
+  '0x6068c0acb197dddbacd4746a9de7f025b2ed5a5b6c1b1ab44dade4426d141da2',
+];
+
 export default function UploadContentPage() {
   const currentAccount = useCurrentAccount();
   const { network } = useSuiClientContext();
-  
+  const suiClient = useSuiClient();
+  const { mutateAsync: signAndExecuteTransaction } = useSignAndExecuteTransaction({
+    execute: async ({ bytes, signature }) => await suiClient.executeTransactionBlock({
+      transactionBlock: bytes,
+      signature,
+      options: { showRawEffects: true, showObjectChanges: true }
+    })
+  });
+
+  const VERILENS_PACKAGE_ID = process.env.NEXT_PUBLIC_VERILENS_PACKAGE_ID || '';
+
+  // Walrus endpoints
+  const walrusConfig = useMemo(() => {
+    const isMainnet = network === 'mainnet';
+    return {
+      publisherUrl: isMainnet
+        ? 'https://publisher.walrus.space'
+        : 'https://publisher.walrus-testnet.walrus.space',
+      aggregatorUrl: isMainnet
+        ? 'https://aggregator.walrus.space'
+        : 'https://aggregator.walrus-testnet.walrus.space',
+    };
+  }, [network]);
+
+  // Initialize Seal Client
+  const sealClient = useMemo(() => {
+    const networkName = (network || 'testnet') as 'mainnet' | 'testnet' | 'devnet' | 'localnet';
+    const client = new SuiClient({
+      url: getFullnodeUrl(networkName),
+    });
+
+    return new SealClient({
+      suiClient: client as any,
+      serverConfigs: SEAL_KEY_SERVERS.map((id) => ({
+        objectId: id,
+        weight: 0.33,
+      })),
+      verifyKeyServers: false,
+    });
+  }, [network]);
+
+  // Helper function to upload to Walrus via HTTP
+  const uploadToWalrus = async (data: Uint8Array, epochs: number = 5) => {
+    const response = await fetch(`${walrusConfig.publisherUrl}/v1/blobs?epochs=${epochs}`, {
+      method: 'PUT',
+      body: new Blob([data.buffer as ArrayBuffer]), // Type assertion
+      headers: {
+        'Content-Type': 'application/octet-stream',
+      },
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`Walrus upload failed: ${response.statusText} - ${errorText}`);
+    }
+
+    return await response.json();
+  };
+
+  const stringToBytes = (id: string): Uint8Array => {
+    if (id.startsWith('0x')) {
+      const hex = id.slice(2);
+      const arr = new Uint8Array(hex.length / 2);
+      for (let i = 0; i < hex.length; i += 2) {
+        arr[i / 2] = parseInt(hex.slice(i, i + 2), 16);
+      }
+      return arr;
+    }
+    return new TextEncoder().encode(id);
+  };
+
+  const submitVerificationRequest = async () => {
+    if (!uploadResponse || !currentAccount) return;
+    if (!VERILENS_PACKAGE_ID) {
+      setError('Contract package ID is not configured. Set NEXT_PUBLIC_VERILENS_PACKAGE_ID.');
+      return;
+    }
+    try {
+      const tx = new Transaction();
+      const mediaBytes = stringToBytes(uploadResponse.walrusMediaId);
+      const manifestBytes = stringToBytes(uploadResponse.walrusManifestId);
+      tx.moveCall({
+        target: `${VERILENS_PACKAGE_ID}::verilens_oracle::request_verification`,
+        arguments: [
+          tx.pure.vector('u8', Array.from(mediaBytes)),
+          tx.pure.vector('u8', Array.from(manifestBytes)),
+        ],
+      });
+      const chain = `sui:${network || 'testnet'}`;
+      const result = await signAndExecuteTransaction({ transaction: tx, chain });
+      setUploadResponse(prev => prev ? { ...prev, transactionDigest: result.digest } : prev);
+    } catch (e: any) {
+      setError(e?.message || 'Failed to submit verification request');
+    }
+  };
+
   // File states
   const [mediaFile, setMediaFile] = useState<File | null>(null);
   const [manifestFile, setManifestFile] = useState<File | null>(null);
   const [mediaPreview, setMediaPreview] = useState<string | null>(null);
-  
+
   // Seal encryption state
   const [sealConfig, setSealConfig] = useState<SealEncryptionConfig>({
     enabled: false,
     accessPolicy: 'creator-only',
     authorizedParties: []
   });
-  
+
   // UI states
   const [isUploading, setIsUploading] = useState(false);
   const [uploadResponse, setUploadResponse] = useState<UploadResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [dragActive, setDragActive] = useState<{ media: boolean; manifest: boolean }>({ 
-    media: false, 
-    manifest: false 
+  const [dragActive, setDragActive] = useState<{ media: boolean; manifest: boolean }>({
+    media: false,
+    manifest: false
   });
-  
+
   // Refs for file inputs
   const mediaInputRef = useRef<HTMLInputElement>(null);
   const manifestInputRef = useRef<HTMLInputElement>(null);
@@ -59,7 +163,7 @@ export default function UploadContentPage() {
     e.preventDefault();
     e.stopPropagation();
     setDragActive({ media: false, manifest: false });
-    
+
     const files = e.dataTransfer.files;
     if (files && files[0]) {
       handleFileSelection(files[0], type);
@@ -69,24 +173,21 @@ export default function UploadContentPage() {
   // Handle file selection
   const handleFileSelection = (file: File, type: 'media' | 'manifest') => {
     setError(null);
-    
+
     if (type === 'media') {
-      // Validate media file
       const validMediaTypes = ['image/jpeg', 'image/png', 'image/gif', 'video/mp4', 'video/quicktime'];
       if (!validMediaTypes.includes(file.type)) {
         setError('Please upload a valid image (JPEG, PNG, GIF) or video (MP4, MOV) file.');
         return;
       }
-      
-      // Check file size (50MB limit)
+
       if (file.size > 50 * 1024 * 1024) {
         setError('Media file size must be less than 50MB.');
         return;
       }
-      
+
       setMediaFile(file);
-      
-      // Create preview for images
+
       if (file.type.startsWith('image/')) {
         const reader = new FileReader();
         reader.onload = (e) => {
@@ -97,19 +198,17 @@ export default function UploadContentPage() {
         setMediaPreview(null);
       }
     } else {
-      // Validate manifest file
       const validManifestTypes = ['application/json', 'text/xml', 'application/xml'];
       if (!validManifestTypes.includes(file.type)) {
         setError('Please upload a valid C2PA manifest file (JSON or XML).');
         return;
       }
-      
-      // Check file size (5MB limit)
+
       if (file.size > 5 * 1024 * 1024) {
         setError('Manifest file size must be less than 5MB.');
         return;
       }
-      
+
       setManifestFile(file);
     }
   };
@@ -149,75 +248,95 @@ export default function UploadContentPage() {
   // Handle form submission
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (!currentAccount) {
       setError('Please connect your wallet to continue.');
       return;
     }
-    
+
     if (!mediaFile || !manifestFile) {
       setError('Please upload both media file and C2PA manifest.');
       return;
     }
-    
+
     setIsUploading(true);
     setError(null);
-    
+
     try {
-      const currentNetwork = network || 'testnet';
+      // Convert files to byte arrays
       const mediaBytes = new Uint8Array(await mediaFile.arrayBuffer());
       const manifestBytes = new Uint8Array(await manifestFile.arrayBuffer());
 
+      // Handle encryption if enabled
       let encryptedMedia = mediaBytes;
 
       if (sealConfig.enabled) {
         try {
-          const sealModule: any = await import('@mysten/seal');
-          const sealClient = new sealModule.SealClient({ network: currentNetwork });
-          encryptedMedia = await sealClient.encrypt({ data: mediaBytes, policy: sealConfig.accessPolicy });
+          const sealId = crypto.randomUUID();
+          const sealResult = await sealClient.encrypt({
+            data: mediaBytes,
+            threshold: 2,
+            id: sealId,
+            packageId: ""
+          });
+          encryptedMedia = sealResult.encryptedObject;
+          console.log('Media encrypted successfully');
         } catch (encryptionErr) {
-          throw new Error('Seal encryption is not configured. Disable encryption or configure key servers.');
+          console.error('Seal encryption error:', encryptionErr);
+          throw new Error('Seal encryption failed. Please try without encryption.');
         }
       }
 
       try {
-        const suiModule: any = await import('@mysten/sui/client');
-        const walrusModule: any = await import('@mysten/walrus');
+        console.log('Uploading to Walrus...');
 
-        const client = new suiModule.SuiClient({
-          url: suiModule.getFullnodeUrl(currentNetwork),
-          network: currentNetwork,
-        }).$extend(
-          walrusModule.walrus({
-            uploadRelay: {
-              host: currentNetwork === 'mainnet'
-                ? 'https://upload-relay.mainnet.walrus.space'
-                : 'https://upload-relay.testnet.walrus.space',
-            },
-          }),
-        );
+        // Upload media file to Walrus
+        const mediaResult = await uploadToWalrus(encryptedMedia, 5);
+        console.log('Media uploaded:', mediaResult);
 
-        const result: any = await client.walrus.writeFiles({ files: [encryptedMedia, manifestBytes], signer: currentAccount });
+        // Upload manifest file to Walrus
+        const manifestResult = await uploadToWalrus(manifestBytes, 5);
+        console.log('Manifest uploaded:', manifestResult);
 
-        const mediaBlobId: string = result.blobIds?.[0] || result.mediaBlobId;
-        const manifestBlobId: string = result.blobIds?.[1] || result.manifestBlobId;
+        // Extract blob IDs from the response
+        // Walrus response structure: { newlyCreated: { blobObject: { blobId, id, ... } } } or { alreadyCertified: { blobId, ... } }
+        const mediaBlobId = mediaResult.newlyCreated?.blobObject?.blobId ||
+          mediaResult.alreadyCertified?.blobId;
+        const manifestBlobId = manifestResult.newlyCreated?.blobObject?.blobId ||
+          manifestResult.alreadyCertified?.blobId;
+
+        if (!mediaBlobId || !manifestBlobId) {
+          console.error('Full media result:', mediaResult);
+          console.error('Full manifest result:', manifestResult);
+          throw new Error('Failed to retrieve Walrus blob IDs from response');
+        }
+
+        console.log('Blob IDs extracted:', { mediaBlobId, manifestBlobId });
 
         setUploadResponse({
           walrusMediaId: mediaBlobId,
           walrusManifestId: manifestBlobId,
-          jobId: 'client-only',
+          jobId: `job_${Date.now()}_${Math.random().toString(36).substring(7)}`,
+          transactionDigest: mediaResult.newlyCreated?.blobObject?.id,
         });
 
+        // Reset form
         setMediaFile(null);
         setManifestFile(null);
         setMediaPreview(null);
         setSealConfig({ enabled: false, accessPolicy: 'creator-only', authorizedParties: [] });
+
       } catch (walrusErr) {
+        console.error('Walrus upload error:', walrusErr);
+
+        // Fallback to backend API
+        console.log('Attempting backend upload fallback...');
+
         const formData = new FormData();
         formData.append('mediaFile', mediaFile);
         formData.append('manifestFile', manifestFile);
         formData.append('walletAddress', currentAccount.address);
-        formData.append('network', currentNetwork);
+        formData.append('network', network || 'testnet');
         formData.append('sealEncryption', JSON.stringify(sealConfig));
 
         const response = await fetch('/api/verify/submit', {
@@ -226,18 +345,21 @@ export default function UploadContentPage() {
         });
 
         if (!response.ok) {
-          throw new Error('Upload failed. Please try again.');
+          const errorData = await response.json().catch(() => ({}));
+          throw new Error(errorData.message || 'Upload failed. Please try again.');
         }
 
         const data: UploadResponse = await response.json();
         setUploadResponse(data);
 
+        // Reset form
         setMediaFile(null);
         setManifestFile(null);
         setMediaPreview(null);
         setSealConfig({ enabled: false, accessPolicy: 'creator-only', authorizedParties: [] });
       }
     } catch (err) {
+      console.error('Upload error:', err);
       setError(err instanceof Error ? err.message : 'An unexpected error occurred.');
     } finally {
       setIsUploading(false);
@@ -255,6 +377,7 @@ export default function UploadContentPage() {
   };
 
   return (
+
     <motion.div
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
@@ -263,13 +386,13 @@ export default function UploadContentPage() {
     >
       <div className="container mx-auto px-4 py-8">
         {/* Page Header */}
-        <motion.div 
+        <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           className="text-center mb-12"
         >
           <h1 className="text-4xl md:text-5xl font-bold text-primary mb-4">
-            Upload Your Content
+            Upload Your Digital Content
           </h1>
           <p className="text-xl text-secondary-light max-w-3xl mx-auto">
             Upload your media and C2PA manifest to create verifiable proof of authenticity on the Sui blockchain
@@ -278,7 +401,7 @@ export default function UploadContentPage() {
 
         {/* Wallet Connection Status */}
         {!currentAccount && (
-          <motion.div 
+          <motion.div
             initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
             className="bg-yellow-900/20 border border-yellow-500/30 rounded-lg p-4 mb-8 text-center"
@@ -290,11 +413,11 @@ export default function UploadContentPage() {
         )}
 
         {/* Upload Form */}
-        <motion.form 
+        <motion.form
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.2 }}
-          onSubmit={handleSubmit} 
+          onSubmit={handleSubmit}
           className="max-w-4xl mx-auto space-y-8"
         >
           {/* Media File Upload Section */}
@@ -312,14 +435,13 @@ export default function UploadContentPage() {
             <p className="text-gray-300 mb-6">
               Upload your image or video file. Supported formats: JPEG, PNG, GIF, MP4, MOV (max 50MB)
             </p>
-            
+
             {!mediaFile ? (
               <div
-                className={`border-2 border-dashed rounded-lg p-8 text-center transition-all duration-300 ${
-                  dragActive.media 
-                    ? 'border-primary bg-primary/10' 
-                    : 'border-gray-600 hover:border-primary/50 hover:bg-primary/5'
-                }`}
+                className={`border-2 border-dashed rounded-lg p-8 text-center transition-all duration-300 ${dragActive.media
+                  ? 'border-primary bg-primary/10'
+                  : 'border-gray-600 hover:border-primary/50 hover:bg-primary/5'
+                  }`}
                 onDragEnter={(e) => handleDrag(e, 'media', true)}
                 onDragLeave={(e) => handleDrag(e, 'media', false)}
                 onDragOver={(e) => e.preventDefault()}
@@ -410,14 +532,13 @@ export default function UploadContentPage() {
             <p className="text-gray-300 mb-6">
               Upload the C2PA manifest file that contains provenance information. Supported formats: JSON, XML (max 5MB)
             </p>
-            
+
             {!manifestFile ? (
               <div
-                className={`border-2 border-dashed rounded-lg p-8 text-center transition-all duration-300 ${
-                  dragActive.manifest 
-                    ? 'border-secondary bg-secondary/10' 
-                    : 'border-gray-600 hover:border-secondary/50 hover:bg-secondary/5'
-                }`}
+                className={`border-2 border-dashed rounded-lg p-8 text-center transition-all duration-300 ${dragActive.manifest
+                  ? 'border-secondary bg-secondary/10'
+                  : 'border-gray-600 hover:border-secondary/50 hover:bg-secondary/5'
+                  }`}
                 onDragEnter={(e) => handleDrag(e, 'manifest', true)}
                 onDragLeave={(e) => handleDrag(e, 'manifest', false)}
                 onDragOver={(e) => e.preventDefault()}
@@ -492,7 +613,7 @@ export default function UploadContentPage() {
             <p className="text-gray-300 mb-6">
               Encrypt your content using Seal to control access and ensure only authorized parties can decrypt your media.
             </p>
-            
+
             <div className="space-y-4">
               <div className="flex items-center justify-between p-4 bg-darkblue-dark rounded-lg border border-gray-600">
                 <div>
@@ -504,18 +625,16 @@ export default function UploadContentPage() {
                 <button
                   type="button"
                   onClick={toggleSealEncryption}
-                  className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                    sealConfig.enabled ? 'bg-accent' : 'bg-gray-600'
-                  }`}
+                  className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${sealConfig.enabled ? 'bg-accent' : 'bg-gray-600'
+                    }`}
                 >
                   <span
-                    className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                      sealConfig.enabled ? 'translate-x-6' : 'translate-x-1'
-                    }`}
+                    className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${sealConfig.enabled ? 'translate-x-6' : 'translate-x-1'
+                      }`}
                   />
                 </button>
               </div>
-              
+
               {sealConfig.enabled && (
                 <motion.div
                   initial={{ opacity: 0, height: 0 }}
@@ -534,7 +653,7 @@ export default function UploadContentPage() {
                       <option value="public">Public (No Encryption)</option>
                     </select>
                   </div>
-                  
+
                   <div className="p-4 bg-blue-900/20 rounded-lg border border-blue-500/30">
                     <h4 className="font-medium text-blue-300 mb-2">ℹ️ Seal Encryption Benefits</h4>
                     <ul className="text-sm text-gray-300 space-y-1">
@@ -572,11 +691,10 @@ export default function UploadContentPage() {
               disabled={isUploading || !currentAccount || !mediaFile || !manifestFile}
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
-              className={`px-8 py-4 rounded-lg font-semibold text-lg transition-all duration-300 ${
-                isUploading || !currentAccount || !mediaFile || !manifestFile
-                  ? 'bg-gray-600 text-gray-400 cursor-not-allowed'
-                  : 'bg-[#0083D4] text-white hover:bg-[#006D77] hover:shadow-glow'
-              }`}
+              className={`px-8 py-4 rounded-lg font-semibold text-lg transition-all duration-300 ${isUploading || !currentAccount || !mediaFile || !manifestFile
+                ? 'bg-gray-600 text-gray-400 cursor-not-allowed'
+                : 'bg-[#0083D4] text-white hover:bg-[#006D77] hover:shadow-glow'
+                }`}
             >
               {isUploading ? (
                 <div className="flex items-center space-x-2">
@@ -587,7 +705,7 @@ export default function UploadContentPage() {
                 'Upload & Verify Content'
               )}
             </motion.button>
-            
+
             {(mediaFile || manifestFile) && (
               <motion.button
                 type="button"
@@ -615,7 +733,7 @@ export default function UploadContentPage() {
               </svg>
               Upload Successful!
             </h3>
-            
+
             <div className="space-y-4">
               <div className="bg-darkblue-dark rounded-lg p-4">
                 <h4 className="font-medium text-white mb-2">Walrus Blob IDs</h4>
@@ -634,13 +752,13 @@ export default function UploadContentPage() {
                   </div>
                 </div>
               </div>
-              
+
               <div className="flex space-x-4">
                 <button
-                  onClick={() => {/* TODO: Navigate to verification status */}}
+                  onClick={submitVerificationRequest}
                   className="px-4 py-2 bg-primary hover:bg-primary-light rounded-lg text-white font-medium transition-colors"
                 >
-                  Check Verification Status
+                  Submit Verification Request
                 </button>
                 {uploadResponse.transactionDigest && (
                   <a
