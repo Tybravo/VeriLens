@@ -7,6 +7,7 @@ import { motion, useScroll, useTransform } from "framer-motion";
 import { useSuiClientContext, useCurrentAccount, useDisconnectWallet } from '@mysten/dapp-kit';
 import { usePathname } from 'next/navigation';
 import WalletModal from './WalletModal';
+import RouteProgressBar from './RouteProgressBar';
 
 const Header = () => {
   const ctx = useSuiClientContext();
@@ -93,7 +94,7 @@ const Header = () => {
               </div>
             </div>
             <motion.div whileHover={{ scale: 1.05 }}>
-              <Link href="/instances" className="text-secondary hover:text-primary transition-colors">
+              <Link href="/creator/generate-manifest?close=1" className="text-secondary hover:text-primary transition-colors">
                 INSTANCES
               </Link>
             </motion.div>
@@ -220,7 +221,7 @@ const Header = () => {
                 )}
               </div>
               <motion.div whileHover={{ scale: 1.05 }}>
-                <Link href="/instances" className="block text-secondary-light hover:text-primary transition py-2 border-b border-primary/20" onClick={() => setIsMenuOpen(false)}>
+                <Link href="/creator/generate-manifest?close=1" className="block text-secondary-light hover:text-primary transition py-2 border-b border-primary/20" onClick={() => setIsMenuOpen(false)}>
                   INSTANCES
                 </Link>
               </motion.div>
@@ -283,6 +284,7 @@ const Header = () => {
           </div>
         )}
       </nav>
+      <RouteProgressBar />
       
       <WalletModal 
         isOpen={isWalletModalOpen} 

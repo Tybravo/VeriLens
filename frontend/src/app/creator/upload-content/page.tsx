@@ -344,7 +344,7 @@ export default function UploadContentPage() {
           className="text-center mb-12"
         >
           <h1 className="text-4xl md:text-5xl font-bold text-primary mb-4">
-            Upload Your Content
+            Upload Your Digital Content
           </h1>
           <p className="text-xl text-secondary-light max-w-3xl mx-auto">
             Upload your media and C2PA manifest to create verifiable proof of authenticity on the Sui blockchain
