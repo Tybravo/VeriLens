@@ -11,9 +11,9 @@
   "dependencies": {
     "@emotion/is-prop-valid": "^1.4.0",
     "@mysten/dapp-kit": "^0.12.0",
-    "@mysten/sui": "^1.43.1",
-    "@mysten/walrus": "^0.2.0",
     "@mysten/seal": "^0.6.0",
+    "@mysten/sui": "^1.44.0",
+    "@mysten/walrus": "^0.2.3",
     "@react-three/drei": "^10.7.6",
     "@react-three/fiber": "^8.15.11",
     "@tanstack/react-query": "^5.17.19",
