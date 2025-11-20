@@ -5,7 +5,12 @@
   "scripts": {
     "test": "jest",
     "test:watch": "jest --watch",
-    "dev": "env-cmd -f .env ts-node src/index.ts"
+    "dev": "env-cmd -f .env ts-node src/index.ts",
+    "oracle:publish": "env-cmd -f .env ts-node src/scripts/publish.ts",
+    "oracle:create-config": "env-cmd -f .env ts-node src/scripts/create-config.ts",
+    "oracle:enable-dev-mint": "env-cmd -f .env ts-node src/scripts/enable-dev-mint.ts",
+    "oracle:submit-mock": "env-cmd -f .env ts-node src/scripts/submit-mock-attestation.ts",
+    "oracle:summary": "env-cmd -f .env ts-node src/oracle/summary.ts"
   },
   "keywords": [],
   "author": "",
