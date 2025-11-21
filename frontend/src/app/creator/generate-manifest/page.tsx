@@ -216,7 +216,7 @@ export default function GenerateManifestPage() {
           </p>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 m-2">
           {instances.map((instance) => (
             <div
               key={instance.id}

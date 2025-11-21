@@ -13,7 +13,7 @@ VeriLens is a decentralized **media verification and provenance** platform that 
 
 ---
 
-## Project structure (recommended)
+## Project structure
 
 ```
 VeriLens/

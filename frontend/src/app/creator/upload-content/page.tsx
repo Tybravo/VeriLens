@@ -1,11 +1,12 @@
 'use client';
 
 import React, { useState, useRef, useCallback, useMemo } from 'react';
-import { useCurrentAccount, useSuiClientContext } from '@mysten/dapp-kit';
+import { useCurrentAccount, useSuiClientContext, useSignAndExecuteTransaction, useSuiClient } from '@mysten/dapp-kit';
 import { motion } from 'framer-motion';
 import Image from 'next/image';
 import { SealClient } from "@mysten/seal";
 import { getFullnodeUrl, SuiClient } from '@mysten/sui/client';
+import { Transaction } from '@mysten/sui/transactions';
 
 interface UploadResponse {
   walrusMediaId: string;
@@ -29,6 +30,16 @@ const SEAL_KEY_SERVERS = [
 export default function UploadContentPage() {
   const currentAccount = useCurrentAccount();
   const { network } = useSuiClientContext();
+  const suiClient = useSuiClient();
+  const { mutateAsync: signAndExecuteTransaction } = useSignAndExecuteTransaction({
+    execute: async ({ bytes, signature }) => await suiClient.executeTransactionBlock({
+      transactionBlock: bytes,
+      signature,
+      options: { showRawEffects: true, showObjectChanges: true }
+    })
+  });
+
+  const VERILENS_PACKAGE_ID = process.env.NEXT_PUBLIC_VERILENS_PACKAGE_ID || '';
 
   // Walrus endpoints
   const walrusConfig = useMemo(() => {
@@ -76,6 +87,43 @@ export default function UploadContentPage() {
     }
 
     return await response.json();
+  };
+
+  const stringToBytes = (id: string): Uint8Array => {
+    if (id.startsWith('0x')) {
+      const hex = id.slice(2);
+      const arr = new Uint8Array(hex.length / 2);
+      for (let i = 0; i < hex.length; i += 2) {
+        arr[i / 2] = parseInt(hex.slice(i, i + 2), 16);
+      }
+      return arr;
+    }
+    return new TextEncoder().encode(id);
+  };
+
+  const submitVerificationRequest = async () => {
+    if (!uploadResponse || !currentAccount) return;
+    if (!VERILENS_PACKAGE_ID) {
+      setError('Contract package ID is not configured. Set NEXT_PUBLIC_VERILENS_PACKAGE_ID.');
+      return;
+    }
+    try {
+      const tx = new Transaction();
+      const mediaBytes = stringToBytes(uploadResponse.walrusMediaId);
+      const manifestBytes = stringToBytes(uploadResponse.walrusManifestId);
+      tx.moveCall({
+        target: `${VERILENS_PACKAGE_ID}::verilens_oracle::request_verification`,
+        arguments: [
+          tx.pure.vector('u8', Array.from(mediaBytes)),
+          tx.pure.vector('u8', Array.from(manifestBytes)),
+        ],
+      });
+      const chain = `sui:${network || 'testnet'}`;
+      const result = await signAndExecuteTransaction({ transaction: tx, chain });
+      setUploadResponse(prev => prev ? { ...prev, transactionDigest: result.digest } : prev);
+    } catch (e: any) {
+      setError(e?.message || 'Failed to submit verification request');
+    }
   };
 
   // File states
@@ -707,10 +755,10 @@ export default function UploadContentPage() {
 
               <div className="flex space-x-4">
                 <button
-                  onClick={() => {/* TODO: Navigate to verification status */ }}
+                  onClick={submitVerificationRequest}
                   className="px-4 py-2 bg-primary hover:bg-primary-light rounded-lg text-white font-medium transition-colors"
                 >
-                  Check Verification Status
+                  Submit Verification Request
                 </button>
                 {uploadResponse.transactionDigest && (
                   <a
