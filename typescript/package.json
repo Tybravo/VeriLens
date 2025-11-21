@@ -13,7 +13,8 @@
     "oracle:summary": "env-cmd -f .env ts-node src/oracle/summary.ts",
     "oracle:update-config": "env-cmd -f .env ts-node src/scripts/update-config.ts",
     "oracle:submit": "env-cmd -f .env ts-node src/scripts/submit-attestation.ts",
-    "oracle:worker": "env-cmd -f .env ts-node src/scripts/run-worker.ts"
+    "oracle:worker": "env-cmd -f .env ts-node src/scripts/run-worker.ts",
+    "oracle:hash-file": "ts-node src/scripts/hash-file.ts"
   },
   "keywords": [],
   "author": "",
