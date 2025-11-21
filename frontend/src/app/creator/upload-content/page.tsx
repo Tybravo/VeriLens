@@ -714,7 +714,7 @@ export default function UploadContentPage() {
                 </button>
                 {uploadResponse.transactionDigest && (
                   <a
-                    href={`https://suiexplorer.com/txblock/${uploadResponse.transactionDigest}?network=${network}`}
+                    href={`https://suiexplorer.com/object/${uploadResponse.transactionDigest}?network=${network}`}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="px-4 py-2 bg-secondary hover:bg-secondary-light rounded-lg text-white font-medium transition-colors"
