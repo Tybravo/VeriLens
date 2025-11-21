@@ -1,18 +1,22 @@
 'use client';
 
-import React, { useState, useRef, useCallback, useMemo } from 'react';
-import { useCurrentAccount, useSuiClientContext, useSignAndExecuteTransaction, useSuiClient } from '@mysten/dapp-kit';
+import React, { useState, useRef, useCallback, useMemo, useEffect } from 'react';
+import { useCurrentAccount, useSuiClientContext, useSignAndExecuteTransaction } from '@mysten/dapp-kit';
 import { motion } from 'framer-motion';
 import Image from 'next/image';
 import { SealClient } from "@mysten/seal";
 import { getFullnodeUrl, SuiClient } from '@mysten/sui/client';
 import { Transaction } from '@mysten/sui/transactions';
+import { bcs } from '@mysten/sui/bcs';
+import UploadVerificationModal, { ProvenanceCertificate } from '@/components/UploadVerificationModal';
+import ProvenanceCertificateComponent from '@/components/ProvenanceCertificate';
+import { verilensWorkflowService } from '@/services/verilensWorkflow';
 
 interface UploadResponse {
   walrusMediaId: string;
   walrusManifestId: string;
   jobId: string;
-  transactionDigest?: string;
+  verificationDigest?: string;
 }
 
 interface SealEncryptionConfig {
@@ -30,14 +34,7 @@ const SEAL_KEY_SERVERS = [
 export default function UploadContentPage() {
   const currentAccount = useCurrentAccount();
   const { network } = useSuiClientContext();
-  const suiClient = useSuiClient();
-  const { mutateAsync: signAndExecuteTransaction } = useSignAndExecuteTransaction({
-    execute: async ({ bytes, signature }) => await suiClient.executeTransactionBlock({
-      transactionBlock: bytes,
-      signature,
-      options: { showRawEffects: true, showObjectChanges: true }
-    })
-  });
+  const { mutateAsync: signAndExecuteTransaction } = useSignAndExecuteTransaction();
 
   const VERILENS_PACKAGE_ID = process.env.NEXT_PUBLIC_VERILENS_PACKAGE_ID || '';
 
@@ -71,6 +68,27 @@ export default function UploadContentPage() {
     });
   }, [network]);
 
+  const suiClient = useMemo(() => {
+    const networkName = (network || 'testnet') as 'mainnet' | 'testnet' | 'devnet' | 'localnet';
+    return new SuiClient({ url: getFullnodeUrl(networkName) });
+  }, [network]);
+
+  const [isUploading, setIsUploading] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [uploadResponse, setUploadResponse] = useState<UploadResponse | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [dragActive, setDragActive] = useState<{ media: boolean; manifest: boolean }>({
+    media: false,
+    manifest: false
+  });
+  const [verificationEvent, setVerificationEvent] = useState<any | null>(null);
+  const [certificateId, setCertificateId] = useState<string | null>(null);
+  
+  // New modal and certificate states
+  const [showVerificationModal, setShowVerificationModal] = useState(false);
+  const [showCertificateModal, setShowCertificateModal] = useState(false);
+  const [currentCertificate, setCurrentCertificate] = useState<ProvenanceCertificate | null>(null);
+
   // Helper function to upload to Walrus via HTTP
   const uploadToWalrus = async (data: Uint8Array, epochs: number = 5) => {
     const response = await fetch(`${walrusConfig.publisherUrl}/v1/blobs?epochs=${epochs}`, {
@@ -89,18 +107,13 @@ export default function UploadContentPage() {
     return await response.json();
   };
 
-  const stringToBytes = (id: string): Uint8Array => {
-    if (id.startsWith('0x')) {
-      const hex = id.slice(2);
-      const arr = new Uint8Array(hex.length / 2);
-      for (let i = 0; i < hex.length; i += 2) {
-        arr[i / 2] = parseInt(hex.slice(i, i + 2), 16);
-      }
-      return arr;
-    }
-    return new TextEncoder().encode(id);
+  // Helper function to convert string to bytes
+  const stringToBytes = (str: string): Uint8Array => {
+    const encoder = new TextEncoder();
+    return encoder.encode(str);
   };
 
+  // Submit verification request to VeriLens oracle
   const submitVerificationRequest = async () => {
     if (!uploadResponse || !currentAccount) return;
     if (!VERILENS_PACKAGE_ID) {
@@ -108,23 +121,77 @@ export default function UploadContentPage() {
       return;
     }
     try {
+      setIsSubmitting(true);
+      setUploadResponse(prev => (prev ? { ...prev, verificationDigest: undefined } : prev));
       const tx = new Transaction();
       const mediaBytes = stringToBytes(uploadResponse.walrusMediaId);
       const manifestBytes = stringToBytes(uploadResponse.walrusManifestId);
+      const mediaVec = bcs.vector(bcs.U8).serialize(Array.from(mediaBytes));
+      const manifestVec = bcs.vector(bcs.U8).serialize(Array.from(manifestBytes));
       tx.moveCall({
         target: `${VERILENS_PACKAGE_ID}::verilens_oracle::request_verification`,
         arguments: [
-          tx.pure.vector('u8', Array.from(mediaBytes)),
-          tx.pure.vector('u8', Array.from(manifestBytes)),
+          tx.pure(mediaVec),
+          tx.pure(manifestVec),
         ],
       });
-      const chain = `sui:${network || 'testnet'}`;
-      const result = await signAndExecuteTransaction({ transaction: tx, chain });
-      setUploadResponse(prev => prev ? { ...prev, transactionDigest: result.digest } : prev);
+      const result = await signAndExecuteTransaction({ transaction: tx });
+      const digest = (result as any)?.digest || (result as any)?.effects?.transactionDigest || (result as any)?.data?.digest;
+      if (digest) {
+        setUploadResponse(prev => (prev ? { ...prev, verificationDigest: digest } : prev));
+      }
     } catch (e: any) {
       setError(e?.message || 'Failed to submit verification request');
+    } finally {
+      setIsSubmitting(false);
     }
   };
+
+  const loadVerificationEvent = async () => {
+    if (!uploadResponse?.verificationDigest) return;
+    try {
+      const res = await suiClient.queryEvents({ query: { Transaction: uploadResponse.verificationDigest } });
+      const ev = res.data?.[0];
+      setVerificationEvent(ev || null);
+    } catch (e) {
+      setVerificationEvent(null);
+    }
+  };
+
+  useEffect(() => {
+    let timer: any;
+    const start = async () => {
+      if (!uploadResponse || !currentAccount || !VERILENS_PACKAGE_ID) return;
+      const mediaId = uploadResponse.walrusMediaId;
+      const manifestId = uploadResponse.walrusManifestId;
+      timer = setInterval(async () => {
+        try {
+          const owned: any = await suiClient.getOwnedObjects({
+            owner: currentAccount.address,
+            filter: { MatchAny: [{ StructType: `${VERILENS_PACKAGE_ID}::verilens_oracle::ProvenanceCertificate` }] } as any,
+            options: { showType: true },
+          } as any);
+          for (const o of owned?.data || []) {
+            const objectId = o.data?.objectId || o.objectId || o?.objectId;
+            if (!objectId) continue;
+            const obj: any = await suiClient.getObject({ id: objectId, options: { showContent: true } });
+            const fields: any = obj?.data?.content?.fields;
+            const mediaBlob = fields?.media_blob_id;
+            const manifestBlob = fields?.manifest_blob_id;
+            if (typeof mediaBlob === 'string' && typeof manifestBlob === 'string') {
+              if (mediaBlob === mediaId && manifestBlob === manifestId) {
+                setCertificateId(objectId);
+                clearInterval(timer);
+                break;
+              }
+            }
+          }
+        } catch {}
+      }, 5000);
+    };
+    start();
+    return () => { if (timer) clearInterval(timer); };
+  }, [uploadResponse, currentAccount, suiClient, VERILENS_PACKAGE_ID]);
 
   // File states
   const [mediaFile, setMediaFile] = useState<File | null>(null);
@@ -136,15 +203,6 @@ export default function UploadContentPage() {
     enabled: false,
     accessPolicy: 'creator-only',
     authorizedParties: []
-  });
-
-  // UI states
-  const [isUploading, setIsUploading] = useState(false);
-  const [uploadResponse, setUploadResponse] = useState<UploadResponse | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [dragActive, setDragActive] = useState<{ media: boolean; manifest: boolean }>({
-    media: false,
-    manifest: false
   });
 
   // Refs for file inputs
@@ -317,7 +375,7 @@ export default function UploadContentPage() {
           walrusMediaId: mediaBlobId,
           walrusManifestId: manifestBlobId,
           jobId: `job_${Date.now()}_${Math.random().toString(36).substring(7)}`,
-          transactionDigest: mediaResult.newlyCreated?.blobObject?.id,
+          verificationDigest: undefined,
         });
 
         // Reset form
@@ -376,6 +434,73 @@ export default function UploadContentPage() {
     setSealConfig({ enabled: false, accessPolicy: 'creator-only', authorizedParties: [] });
   };
 
+  // Handle new verification workflow with modal
+  const handleVerificationWorkflow = async () => {
+    if (!currentAccount || !mediaFile || !manifestFile) {
+      setError('Please ensure wallet is connected and files are uploaded');
+      return;
+    }
+
+    try {
+      setIsUploading(true);
+      setError(null);
+
+      // Validate files using the workflow service
+      const validation = verilensWorkflowService.validateFiles(mediaFile, manifestFile);
+      if (!validation.valid) {
+        throw new Error(validation.error);
+      }
+
+      // Show the verification modal
+      setShowVerificationModal(true);
+
+    } catch (error) {
+      console.error('Workflow initialization error:', error);
+      setError(error instanceof Error ? error.message : 'Failed to initialize verification workflow');
+      setIsUploading(false);
+    }
+  };
+
+  // Handle workflow completion
+  const handleWorkflowComplete = (certificate: ProvenanceCertificate) => {
+    setCurrentCertificate(certificate);
+    setShowVerificationModal(false);
+    setShowCertificateModal(true);
+    setIsUploading(false);
+    
+    // Reset form after successful completion
+    resetForm();
+  };
+
+  // Handle certificate download
+  const handleCertificateDownload = () => {
+    if (!currentCertificate) return;
+    
+    // Create a downloadable JSON file with certificate data
+    const certificateData = {
+      ...currentCertificate,
+      network,
+      metadata: {
+        issuedBy: 'VeriLens Truth Engine',
+        version: '1.0',
+        type: 'ProvenanceCertificate',
+        chain: 'Sui',
+      }
+    };
+    
+    const dataStr = JSON.stringify(certificateData, null, 2);
+    const dataBlob = new Blob([dataStr], { type: 'application/json' });
+    const url = URL.createObjectURL(dataBlob);
+    
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `verilens-certificate-${Date.now()}.json`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
+
   return (
 
     <motion.div
@@ -397,6 +522,17 @@ export default function UploadContentPage() {
           <p className="text-xl text-secondary-light max-w-3xl mx-auto">
             Upload your media and C2PA manifest to create verifiable proof of authenticity on the Sui blockchain
           </p>
+          <div className="mt-6">
+            <a
+              href="/test"
+              className="inline-flex items-center space-x-2 px-4 py-2 bg-purple-600 hover:bg-purple-700 rounded-lg text-white font-medium transition-colors"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
+              </svg>
+              <span>Test Suite</span>
+            </a>
+          </div>
         </motion.div>
 
         {/* Wallet Connection Status */}
@@ -437,6 +573,7 @@ export default function UploadContentPage() {
             </p>
 
             {!mediaFile ? (
+              <>
               <div
                 className={`border-2 border-dashed rounded-lg p-8 text-center transition-all duration-300 ${dragActive.media
                   ? 'border-primary bg-primary/10'
@@ -477,6 +614,15 @@ export default function UploadContentPage() {
                   className="hidden"
                 />
               </div>
+              {verificationEvent && (
+                <div className="mt-4 rounded-lg border border-white/10 p-4 text-white/90">
+                  <div className="font-semibold mb-2">Verification Request Event</div>
+                  <div className="text-sm">Digest: {uploadResponse?.verificationDigest}</div>
+                  <div className="text-sm">Type: {(verificationEvent.type as string) || 'moveEvent'}</div>
+                  <div className="text-sm">Sender: {verificationEvent.sender || verificationEvent.transactionModule || ''}</div>
+                </div>
+              )}
+              </>
             ) : (
               <div className="bg-darkblue-dark rounded-lg p-4 border border-green-500/30">
                 <div className="flex items-center justify-between">
@@ -687,7 +833,8 @@ export default function UploadContentPage() {
           {/* Submit Button */}
           <div className="flex justify-center space-x-4">
             <motion.button
-              type="submit"
+              type="button"
+              onClick={handleVerificationWorkflow}
               disabled={isUploading || !currentAccount || !mediaFile || !manifestFile}
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
@@ -699,7 +846,7 @@ export default function UploadContentPage() {
               {isUploading ? (
                 <div className="flex items-center space-x-2">
                   <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
-                  <span>Uploading...</span>
+                  <span>Preparing Verification...</span>
                 </div>
               ) : (
                 'Upload & Verify Content'
@@ -753,22 +900,59 @@ export default function UploadContentPage() {
                 </div>
               </div>
 
+              <div className="bg-darkblue-dark rounded-lg p-4">
+                <h4 className="font-medium text-white mb-2">Verification Status</h4>
+                {!certificateId ? (
+                  <div className="flex items-center text-gray-300">
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                    <span>Waiting for certificate...</span>
+                  </div>
+                ) : (
+                  <div className="space-y-2 text-sm">
+                    <div className="flex justify-between">
+                      <span className="text-gray-400">Status:</span>
+                      <span className="text-green-300 font-semibold">Certificate minted</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-400">Certificate Object:</span>
+                      <a
+                        href={`https://suiexplorer.com/object/${certificateId}?network=${network}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-primary underline"
+                      >
+                        {certificateId}
+                      </a>
+                    </div>
+                  </div>
+                )}
+              </div>
+
               <div className="flex space-x-4">
                 <button
                   onClick={submitVerificationRequest}
-                  className="px-4 py-2 bg-primary hover:bg-primary-light rounded-lg text-white font-medium transition-colors"
+                  disabled={!uploadResponse || !currentAccount || isSubmitting}
+                  className="px-4 py-2 bg-primary hover:bg-[#029699] disabled:bg-gray-600 disabled:cursor-not-allowed rounded-lg text-white font-medium transition-colors"
                 >
                   Submit Verification Request
                 </button>
-                {uploadResponse.transactionDigest && (
+                {uploadResponse?.verificationDigest && (
                   <a
-                    href={`https://suiexplorer.com/txblock/${uploadResponse.transactionDigest}?network=${network}`}
+                    href={`https://suiexplorer.com/txblock/${uploadResponse.verificationDigest}?network=${network}`}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="px-4 py-2 bg-secondary hover:bg-secondary-light rounded-lg text-white font-medium transition-colors"
                   >
                     View on Sui Explorer
                   </a>
+                )}
+                {uploadResponse?.verificationDigest && (
+                  <button
+                    onClick={loadVerificationEvent}
+                    className="px-4 py-2 bg-muted hover:bg-muted/80 rounded-lg text-white font-medium transition-colors"
+                  >
+                    Load Verification Event
+                  </button>
                 )}
               </div>
             </div>
@@ -803,6 +987,35 @@ export default function UploadContentPage() {
             </div>
           </div>
         </motion.div>
+
+        {/* Verification Modal */}
+        {showVerificationModal && mediaFile && manifestFile && currentAccount && (
+          <UploadVerificationModal
+            isOpen={showVerificationModal}
+            onClose={() => {
+              setShowVerificationModal(false);
+              setIsUploading(false);
+            }}
+            onComplete={handleWorkflowComplete}
+            mediaFile={mediaFile}
+            manifestFile={manifestFile}
+            walletAddress={currentAccount.address}
+            sealEncryption={sealConfig.enabled}
+          />
+        )}
+
+        {/* Certificate Modal */}
+        {showCertificateModal && currentCertificate && (
+          <ProvenanceCertificateComponent
+            certificate={currentCertificate}
+            onClose={() => {
+              setShowCertificateModal(false);
+              setCurrentCertificate(null);
+            }}
+            onDownload={handleCertificateDownload}
+            network={network}
+          />
+        )}
       </div>
     </motion.div>
   );
