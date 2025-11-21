@@ -10,7 +10,10 @@
     "oracle:create-config": "env-cmd -f .env ts-node src/scripts/create-config.ts",
     "oracle:enable-dev-mint": "env-cmd -f .env ts-node src/scripts/enable-dev-mint.ts",
     "oracle:submit-mock": "env-cmd -f .env ts-node src/scripts/submit-mock-attestation.ts",
-    "oracle:summary": "env-cmd -f .env ts-node src/oracle/summary.ts"
+    "oracle:summary": "env-cmd -f .env ts-node src/oracle/summary.ts",
+    "oracle:update-config": "env-cmd -f .env ts-node src/scripts/update-config.ts",
+    "oracle:submit": "env-cmd -f .env ts-node src/scripts/submit-attestation.ts",
+    "oracle:worker": "env-cmd -f .env ts-node src/scripts/run-worker.ts"
   },
   "keywords": [],
   "author": "",

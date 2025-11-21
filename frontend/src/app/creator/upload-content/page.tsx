@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useRef, useCallback, useMemo } from 'react';
+import React, { useState, useRef, useCallback, useMemo, useEffect } from 'react';
 import { useCurrentAccount, useSuiClientContext, useSignAndExecuteTransaction } from '@mysten/dapp-kit';
 import { motion } from 'framer-motion';
 import Image from 'next/image';
@@ -69,6 +69,17 @@ export default function UploadContentPage() {
     const networkName = (network || 'testnet') as 'mainnet' | 'testnet' | 'devnet' | 'localnet';
     return new SuiClient({ url: getFullnodeUrl(networkName) });
   }, [network]);
+
+  const [isUploading, setIsUploading] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [uploadResponse, setUploadResponse] = useState<UploadResponse | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [dragActive, setDragActive] = useState<{ media: boolean; manifest: boolean }>({
+    media: false,
+    manifest: false
+  });
+  const [verificationEvent, setVerificationEvent] = useState<any | null>(null);
+  const [certificateId, setCertificateId] = useState<string | null>(null);
 
   // Helper function to upload to Walrus via HTTP
   const uploadToWalrus = async (data: Uint8Array, epochs: number = 5) => {
@@ -139,6 +150,41 @@ export default function UploadContentPage() {
     }
   };
 
+  useEffect(() => {
+    let timer: any;
+    const start = async () => {
+      if (!uploadResponse || !currentAccount || !VERILENS_PACKAGE_ID) return;
+      const mediaId = uploadResponse.walrusMediaId;
+      const manifestId = uploadResponse.walrusManifestId;
+      timer = setInterval(async () => {
+        try {
+          const owned: any = await suiClient.getOwnedObjects({
+            owner: currentAccount.address,
+            filter: { MatchAny: [{ StructType: `${VERILENS_PACKAGE_ID}::verilens_oracle::ProvenanceCertificate` }] } as any,
+            options: { showType: true },
+          } as any);
+          for (const o of owned?.data || []) {
+            const objectId = o.data?.objectId || o.objectId || o?.objectId;
+            if (!objectId) continue;
+            const obj: any = await suiClient.getObject({ id: objectId, options: { showContent: true } });
+            const fields: any = obj?.data?.content?.fields;
+            const mediaBlob = fields?.media_blob_id;
+            const manifestBlob = fields?.manifest_blob_id;
+            if (typeof mediaBlob === 'string' && typeof manifestBlob === 'string') {
+              if (mediaBlob === mediaId && manifestBlob === manifestId) {
+                setCertificateId(objectId);
+                clearInterval(timer);
+                break;
+              }
+            }
+          }
+        } catch {}
+      }, 5000);
+    };
+    start();
+    return () => { if (timer) clearInterval(timer); };
+  }, [uploadResponse, currentAccount, suiClient, VERILENS_PACKAGE_ID]);
+
   // File states
   const [mediaFile, setMediaFile] = useState<File | null>(null);
   const [manifestFile, setManifestFile] = useState<File | null>(null);
@@ -150,17 +196,6 @@ export default function UploadContentPage() {
     accessPolicy: 'creator-only',
     authorizedParties: []
   });
-
-  // UI states
-  const [isUploading, setIsUploading] = useState(false);
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [uploadResponse, setUploadResponse] = useState<UploadResponse | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [dragActive, setDragActive] = useState<{ media: boolean; manifest: boolean }>({
-    media: false,
-    manifest: false
-  });
-  const [verificationEvent, setVerificationEvent] = useState<any | null>(null);
 
   // Refs for file inputs
   const mediaInputRef = useRef<HTMLInputElement>(null);
@@ -776,6 +811,34 @@ export default function UploadContentPage() {
                     <span className="text-blue-300 font-mono">{uploadResponse.jobId}</span>
                   </div>
                 </div>
+              </div>
+
+              <div className="bg-darkblue-dark rounded-lg p-4">
+                <h4 className="font-medium text-white mb-2">Verification Status</h4>
+                {!certificateId ? (
+                  <div className="flex items-center text-gray-300">
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                    <span>Waiting for certificate...</span>
+                  </div>
+                ) : (
+                  <div className="space-y-2 text-sm">
+                    <div className="flex justify-between">
+                      <span className="text-gray-400">Status:</span>
+                      <span className="text-green-300 font-semibold">Certificate minted</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-400">Certificate Object:</span>
+                      <a
+                        href={`https://suiexplorer.com/object/${certificateId}?network=${network}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-primary underline"
+                      >
+                        {certificateId}
+                      </a>
+                    </div>
+                  </div>
+                )}
               </div>
 
               <div className="flex space-x-4">
