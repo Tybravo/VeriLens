@@ -8,6 +8,9 @@ import { SealClient } from "@mysten/seal";
 import { getFullnodeUrl, SuiClient } from '@mysten/sui/client';
 import { Transaction } from '@mysten/sui/transactions';
 import { bcs } from '@mysten/sui/bcs';
+import UploadVerificationModal, { ProvenanceCertificate } from '@/components/UploadVerificationModal';
+import ProvenanceCertificateComponent from '@/components/ProvenanceCertificate';
+import { verilensWorkflowService } from '@/services/verilensWorkflow';
 
 interface UploadResponse {
   walrusMediaId: string;
@@ -80,6 +83,11 @@ export default function UploadContentPage() {
   });
   const [verificationEvent, setVerificationEvent] = useState<any | null>(null);
   const [certificateId, setCertificateId] = useState<string | null>(null);
+  
+  // New modal and certificate states
+  const [showVerificationModal, setShowVerificationModal] = useState(false);
+  const [showCertificateModal, setShowCertificateModal] = useState(false);
+  const [currentCertificate, setCurrentCertificate] = useState<ProvenanceCertificate | null>(null);
 
   // Helper function to upload to Walrus via HTTP
   const uploadToWalrus = async (data: Uint8Array, epochs: number = 5) => {
@@ -426,6 +434,73 @@ export default function UploadContentPage() {
     setSealConfig({ enabled: false, accessPolicy: 'creator-only', authorizedParties: [] });
   };
 
+  // Handle new verification workflow with modal
+  const handleVerificationWorkflow = async () => {
+    if (!currentAccount || !mediaFile || !manifestFile) {
+      setError('Please ensure wallet is connected and files are uploaded');
+      return;
+    }
+
+    try {
+      setIsUploading(true);
+      setError(null);
+
+      // Validate files using the workflow service
+      const validation = verilensWorkflowService.validateFiles(mediaFile, manifestFile);
+      if (!validation.valid) {
+        throw new Error(validation.error);
+      }
+
+      // Show the verification modal
+      setShowVerificationModal(true);
+
+    } catch (error) {
+      console.error('Workflow initialization error:', error);
+      setError(error instanceof Error ? error.message : 'Failed to initialize verification workflow');
+      setIsUploading(false);
+    }
+  };
+
+  // Handle workflow completion
+  const handleWorkflowComplete = (certificate: ProvenanceCertificate) => {
+    setCurrentCertificate(certificate);
+    setShowVerificationModal(false);
+    setShowCertificateModal(true);
+    setIsUploading(false);
+    
+    // Reset form after successful completion
+    resetForm();
+  };
+
+  // Handle certificate download
+  const handleCertificateDownload = () => {
+    if (!currentCertificate) return;
+    
+    // Create a downloadable JSON file with certificate data
+    const certificateData = {
+      ...currentCertificate,
+      network,
+      metadata: {
+        issuedBy: 'VeriLens Truth Engine',
+        version: '1.0',
+        type: 'ProvenanceCertificate',
+        chain: 'Sui',
+      }
+    };
+    
+    const dataStr = JSON.stringify(certificateData, null, 2);
+    const dataBlob = new Blob([dataStr], { type: 'application/json' });
+    const url = URL.createObjectURL(dataBlob);
+    
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `verilens-certificate-${Date.now()}.json`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
+
   return (
 
     <motion.div
@@ -447,6 +522,17 @@ export default function UploadContentPage() {
           <p className="text-xl text-secondary-light max-w-3xl mx-auto">
             Upload your media and C2PA manifest to create verifiable proof of authenticity on the Sui blockchain
           </p>
+          <div className="mt-6">
+            <a
+              href="/test"
+              className="inline-flex items-center space-x-2 px-4 py-2 bg-purple-600 hover:bg-purple-700 rounded-lg text-white font-medium transition-colors"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
+              </svg>
+              <span>Test Suite</span>
+            </a>
+          </div>
         </motion.div>
 
         {/* Wallet Connection Status */}
@@ -747,7 +833,8 @@ export default function UploadContentPage() {
           {/* Submit Button */}
           <div className="flex justify-center space-x-4">
             <motion.button
-              type="submit"
+              type="button"
+              onClick={handleVerificationWorkflow}
               disabled={isUploading || !currentAccount || !mediaFile || !manifestFile}
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
@@ -759,7 +846,7 @@ export default function UploadContentPage() {
               {isUploading ? (
                 <div className="flex items-center space-x-2">
                   <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
-                  <span>Uploading...</span>
+                  <span>Preparing Verification...</span>
                 </div>
               ) : (
                 'Upload & Verify Content'
@@ -900,6 +987,35 @@ export default function UploadContentPage() {
             </div>
           </div>
         </motion.div>
+
+        {/* Verification Modal */}
+        {showVerificationModal && mediaFile && manifestFile && currentAccount && (
+          <UploadVerificationModal
+            isOpen={showVerificationModal}
+            onClose={() => {
+              setShowVerificationModal(false);
+              setIsUploading(false);
+            }}
+            onComplete={handleWorkflowComplete}
+            mediaFile={mediaFile}
+            manifestFile={manifestFile}
+            walletAddress={currentAccount.address}
+            sealEncryption={sealConfig.enabled}
+          />
+        )}
+
+        {/* Certificate Modal */}
+        {showCertificateModal && currentCertificate && (
+          <ProvenanceCertificateComponent
+            certificate={currentCertificate}
+            onClose={() => {
+              setShowCertificateModal(false);
+              setCurrentCertificate(null);
+            }}
+            onDownload={handleCertificateDownload}
+            network={network}
+          />
+        )}
       </div>
     </motion.div>
   );
