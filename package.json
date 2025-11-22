@@ -3,14 +3,30 @@
   "version": "1.0.0",
   "description": "VeriLens - A Sui-based Media Provenance & Authenticity Layer",
   "private": true,
-  "scripts": {
-    "dev": "pnpm --filter frontend dev",
-    "build": "pnpm --filter frontend build",
-    "test": "pnpm --filter typescript test",
+  "workspaces": [
+    "frontend",
+    "backend",
+    "sui"
+  ]
+,
+   "scripts": {
+    "dev": "pnpm -r --parallel dev",
+    "dev:frontend": "pnpm --filter frontend dev",
+    "dev:backend": "pnpm --filter verilens-backend dev",
+    "dev:sui": "pnpm --filter sui dev",
+    "build": "pnpm -r --parallel build",
+    "build:frontend": "pnpm --filter frontend build",
+     "build:backend": "pnpm --filter verilens-backend build",
+    "build:sui": "pnpm --filter sui build",
+    "test": "pnpm -r --parallel test",
     "clean": "rm -rf node_modules **/node_modules pnpm-lock.yaml **/pnpm-lock.yaml",
     "install:fresh": "pnpm clean && pnpm install --force"
   },
-  "keywords": ["sui", "blockchain", "authenticity"],
+  "keywords": [
+    "sui",
+    "blockchain",
+    "authenticity"
+  ],
   "author": "",
   "license": "ISC",
   "packageManager": "pnpm@10.18.2",
@@ -22,5 +38,11 @@
     "overrides": {
       "lru-cache": "7.18.3"
     }
+  },
+  "dependencies": {
+    "express": "^5.1.0"
+  },
+  "devDependencies": {
+    "@types/express": "^5.0.5"
   }
 }
