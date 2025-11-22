@@ -2,7 +2,6 @@ import request from 'supertest';
 import express from 'express';
 import manifestRouter from '../routes/manifest.routes';
 
-// Create test app
 const app = express();
 app.use(express.json());
 app.use('/api', manifestRouter);
