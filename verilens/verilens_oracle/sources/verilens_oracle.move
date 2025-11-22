@@ -23,11 +23,11 @@ module verilens::verilens_oracle {
     // ──────────────────────────────────────────────────────────────
     // SHA-256 hash of the exact C2PA verification binary run inside Nautilus TEE
     #[allow(unused_const)]
-    const EXPECTED_CODE_HASH: vector<u8> = x"0000000000000000000000000000000000000000000000000000000000000000";
+    const EXPECTED_CODE_HASH: vector<u8> = x"30c072e31f24a5798d988c15588d0fd1f506653ca1656dda5f9ceedb78f8cde6";
 
     // Compressed secp256k1 public key (33 bytes) of the Nautilus TEE instance
     #[allow(unused_const)]
-    const TRUSTED_TEE_PUBKEY: vector<u8> = x"020000000000000000000000000000000000000000000000000000000000000000";
+    const TRUSTED_TEE_PUBKEY: vector<u8> = x"02b758ca11a68c04f2ebcb4b3bee0b5a1dd196e36cdc43817395ad2e51bbfe8b32";
 
     public struct OracleConfig has key {
         id: UID,

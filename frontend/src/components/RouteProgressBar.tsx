@@ -1,9 +1,9 @@
 'use client';
 
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState, Suspense } from 'react';
 import { usePathname, useSearchParams } from 'next/navigation';
 
-export default function RouteProgressBar() {
+function RouteProgressBarContent() {
   const pathname = usePathname();
   const [visible, setVisible] = useState(false);
   const [progress, setProgress] = useState(0);
@@ -97,5 +97,13 @@ export default function RouteProgressBar() {
     <div className="w-full">
       <div className="h-[3px] bg-green-500 transition-all duration-150" style={{ width: visible ? `${progress}%` : '0%' }} />
     </div>
+  );
+}
+
+export default function RouteProgressBar() {
+  return (
+    <Suspense fallback={<div className="w-full h-[3px]" />}>
+      <RouteProgressBarContent />
+    </Suspense>
   );
 }

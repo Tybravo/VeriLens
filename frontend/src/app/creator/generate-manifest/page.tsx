@@ -1,10 +1,10 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { Plus, X, Sparkles, Image, Camera, Palette, Award, Bitcoin, Code, Gamepad2, Users, Search, FileText, Bot } from 'lucide-react';
 
-export default function GenerateManifestPage() {
+function GenerateManifestContent() {
   const searchParams = useSearchParams();
   const [modal, setModal] = useState({
     isOpen: false,
@@ -361,5 +361,13 @@ export default function GenerateManifestPage() {
         </div>
       )}
     </div>
+  );
+}
+
+export default function Page() {
+  return (
+    <Suspense fallback={<div />}> 
+      <GenerateManifestContent />
+    </Suspense>
   );
 }
