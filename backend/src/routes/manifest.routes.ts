@@ -7,7 +7,7 @@ router.post("/generate", (req, res) => {
   try {
     const { data, formats } = req.body;
 
-    if (!data || typeof data !== "object") {
+    if (!data || typeof data !== "object" || Array.isArray(data)) {
       return res.status(400).json({ error: "Invalid or missing 'data' object" });
     }
 

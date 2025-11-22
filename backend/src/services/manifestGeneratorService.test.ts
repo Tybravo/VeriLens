@@ -26,11 +26,11 @@ describe('ManifestGeneratorService', () => {
       expect(manifest.version).toBe('1.0.0');
     });
 
-    it('should include correct generator string', () => {
+    it('should include correct generatedBy string', () => {
       const testData = { key: 'value' };
       const manifest = ManifestGeneratorService.generateManifest(testData);
 
-      expect(manifest.generator).toBe('VeriLens Manifest Engine (Key–Value Mode)');
+      expect(manifest.generatedBy).toBe('VeriLens Manifest Engine');
     });
 
     it('should generate timestamp close to current time', () => {
@@ -60,7 +60,7 @@ describe('ManifestGeneratorService', () => {
       const testData = { test: 'data' };
       const manifest = ManifestGeneratorService.generateManifest(testData);
 
-      expect(manifest.contentHash).toMatch(/^[a-f0-9]{64}$/);
+      expect(manifest.hash).toMatch(/^[a-f0-9]{64}$/);
     });
 
     it('should generate deterministic hashes for identical data', () => {
@@ -69,7 +69,7 @@ describe('ManifestGeneratorService', () => {
       const manifest1 = ManifestGeneratorService.generateManifest(testData);
       const manifest2 = ManifestGeneratorService.generateManifest(testData);
 
-      expect(manifest1.contentHash).toBe(manifest2.contentHash);
+      expect(manifest1.hash).toBe(manifest2.hash);
     });
 
     it('should generate different hashes for different data', () => {
@@ -79,14 +79,14 @@ describe('ManifestGeneratorService', () => {
       const manifest1 = ManifestGeneratorService.generateManifest(data1);
       const manifest2 = ManifestGeneratorService.generateManifest(data2);
 
-      expect(manifest1.contentHash).not.toBe(manifest2.contentHash);
+      expect(manifest1.hash).not.toBe(manifest2.hash);
     });
 
     it('should handle empty objects', () => {
       const manifest = ManifestGeneratorService.generateManifest({});
 
       expect(manifest.payload).toEqual({});
-      expect(manifest.contentHash).toBeDefined();
+      expect(manifest.hash).toBeDefined();
     });
 
     it('should handle complex nested data', () => {
@@ -100,7 +100,7 @@ describe('ManifestGeneratorService', () => {
       const manifest = ManifestGeneratorService.generateManifest(complexData);
 
       expect(manifest.payload).toEqual(complexData);
-      expect(manifest.contentHash).toBeDefined();
+      expect(manifest.hash).toBeDefined();
     });
   });
 
@@ -108,12 +108,12 @@ describe('ManifestGeneratorService', () => {
     const sampleManifest = {
       version: '1.0.0',
       timestamp: 1732131212323,
-      contentHash: '3f3458a1b2c3d4e5f6g7h8i9j0k1l2m3n4o5p6q7r8s9t0u1v2w3x4y5z6a7b8c9d0',
+      hash: '3f3458a1b2c3d4e5f6g7h8i9j0k1l2m3n4o5p6q7r8s9t0u1v2w3x4y5z6a7b8c9d0',
       payload: {
         author: 'John Doe',
         title: 'Test Content'
       },
-      generator: 'VeriLens Manifest Engine (Key–Value Mode)'
+      generatedBy: 'VeriLens Manifest Engine'
     };
 
     it('should generate valid XML string', () => {
@@ -135,11 +135,11 @@ describe('ManifestGeneratorService', () => {
       expect(xml).toContain('<timestamp>1732131212323</timestamp>');
     });
 
-    it('should include contentHash in XML', () => {
+    it('should include hash in XML', () => {
       const xml = ManifestGeneratorService.toXML(sampleManifest);
 
-      expect(xml).toContain('<contentHash>');
-      expect(xml).toContain(sampleManifest.contentHash);
+      expect(xml).toContain('<hash>');
+      expect(xml).toContain(sampleManifest.hash);
     });
 
     it('should include payload data in XML', () => {
@@ -149,10 +149,10 @@ describe('ManifestGeneratorService', () => {
       expect(xml).toContain('<title>Test Content</title>');
     });
 
-    it('should include generator in XML', () => {
+    it('should include generatedBy in XML', () => {
       const xml = ManifestGeneratorService.toXML(sampleManifest);
 
-      expect(xml).toContain('<generator>VeriLens Manifest Engine (Key–Value Mode)</generator>');
+      expect(xml).toContain('<generatedBy>VeriLens Manifest Engine</generatedBy>');
     });
 
     it('should handle empty payload in XML', () => {
