@@ -4,7 +4,7 @@ import manifestRouter from '../routes/manifest.routes';
 
 const app = express();
 app.use(express.json());
-app.use('/api', manifestRouter);
+app.use('/api/manifest', manifestRouter);
 
 describe('POST /api/generate', () => {
   describe('successful requests', () => {
