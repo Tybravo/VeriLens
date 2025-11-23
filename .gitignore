@@ -16,8 +16,11 @@ dist-ssr
 #ENV File
 .env
 
+#Documentations
+.trae
+
 #Readme Delayed
-README.md
+# README.md
 
 # Editor directories and files
 .vscode/*
