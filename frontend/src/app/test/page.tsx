@@ -2,18 +2,7 @@
 
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
-import { 
-  TestTube, 
-  Play, 
-  BarChart3, 
-  Settings,
-  FileText,
-  Shield,
-  Award,
-  Clock,
-  CheckCircle,
-  AlertTriangle
-} from 'lucide-react';
+import { TestTube, Play, BarChart3, Settings, FileText, Shield, Award, Clock, CheckCircle, AlertTriangle, Zap } from 'lucide-react';
 import TestRunner from '@/components/TestRunner';
 
 interface TestMetric {
@@ -102,6 +91,14 @@ export default function TestPage() {
       icon: FileText,
       testCount: 9,
       color: 'red',
+    },
+    {
+      id: 'blockchain',
+      name: 'Blockchain Tests',
+      description: 'Real Sui blockchain transaction testing',
+      icon: Zap,
+      testCount: 15,
+      color: 'yellow',
     },
   ];
 
@@ -239,7 +236,13 @@ export default function TestPage() {
                 <div
                   key={category.id}
                   className={`p-6 rounded-xl border transition-all duration-300 cursor-pointer hover:scale-105 ${getColorClasses(category.color)}`}
-                  onClick={() => setSelectedTestType(category.id)}
+                  onClick={() => {
+                    if (category.id === 'blockchain') {
+                      window.location.href = '/test/blockchain';
+                    } else {
+                      setSelectedTestType(category.id);
+                    }
+                  }}
                 >
                   <div className="flex items-center justify-between mb-4">
                     <div className="flex items-center space-x-3">

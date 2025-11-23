@@ -3,6 +3,7 @@ import { Inter, Roboto_Mono } from "next/font/google";
 import { Providers } from "./providers";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
+import { Toaster } from "sonner";
 import "./globals.css";
 
 const inter = Inter({
@@ -17,7 +18,7 @@ const robotoMono = Roboto_Mono({
 
 export const metadata: Metadata = {
   title: "Verilens",
-  description: "A Sui-based Crowdfunding Platform for birthday celebrants",
+  description: "A provanance decentralised laayer on Sui blockchain for authenticity of digital assets",
 };
 
 export default function RootLayout({
@@ -34,6 +35,7 @@ export default function RootLayout({
             {children}
           </main>
           <Footer />
+          <Toaster position="top-right" />
         </Providers>
       </body>
     </html>
