@@ -34,7 +34,7 @@ This implementation provides a complete end-to-end blockchain workflow automatio
 2. **Cryptographic Operations**: Generate verification hashes
 3. **Verification Flow**: Submit blockchain verification requests
 4. **Attestation**: Process C2PA attestation and authenticity checks
-5. **Certificate Options**: Handle certificate sealing when selected
+5. **Certificate Sealing**: Handle certificate sealing when selected
 6. **Provenance Minting**: Mint provenance certificates/badges
 
 ### 🎨 Enhanced UI/UX
