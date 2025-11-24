@@ -289,17 +289,17 @@ const UploadVerificationModal: React.FC<UploadVerificationModalProps> = ({
 
       try {
         setAwaitingSignature(true);
-        const enc = new TextEncoder();
-        const mediaIdBytes = enc.encode(mediaBlobId);
-        const manifestIdBytes = enc.encode(manifestBlobId);
-        const tx = new Transaction();
-        tx.moveCall({
-          target: `${VERILENS_PACKAGE_ID}::verilens_oracle::request_verification`,
-          arguments: [
-            tx.pure(bcs.vector(bcs.U8), Array.from(mediaIdBytes)),
-            tx.pure(bcs.vector(bcs.U8), Array.from(manifestIdBytes))
-          ],
-        });
+       const enc = new TextEncoder();
+      const mediaIdBytes = enc.encode(mediaBlobId);
+      const manifestIdBytes = enc.encode(manifestBlobId);
+      const tx = new Transaction();
+      tx.moveCall({
+        target: `${VERILENS_PACKAGE_ID}::verilens_oracle::request_verification`,
+        arguments: [
+          tx.pure(bcs.vector(bcs.U8).serialize(Array.from(mediaIdBytes)).toBytes()),
+          tx.pure(bcs.vector(bcs.U8).serialize(Array.from(manifestIdBytes)).toBytes())
+        ],
+      });
         const result: any = await signAndExecuteTransaction({ transaction: tx });
         const digest = result?.digest || result?.effects?.transactionDigest || result?.data?.digest || '';
         if (!digest || (typeof digest !== 'string') || digest.length === 0) {
@@ -567,8 +567,8 @@ const UploadVerificationModal: React.FC<UploadVerificationModalProps> = ({
           tx.moveCall({ 
             target: `${VERILENS_PACKAGE_ID}::verilens_oracle::request_verification`, 
             arguments: [
-              tx.pure(bcs.vector(bcs.U8), Array.from(mediaIdBytes)),
-              tx.pure(bcs.vector(bcs.U8), Array.from(manifestIdBytes))
+              tx.pure(bcs.vector(bcs.U8).serialize(Array.from(mediaIdBytes)).toBytes()),
+              tx.pure(bcs.vector(bcs.U8).serialize(Array.from(manifestIdBytes)).toBytes())
             ] 
           });
           setAwaitingSignature(true);
