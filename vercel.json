@@ -1,8 +1,8 @@
 {
   "buildCommand": "pnpm --filter=frontend run build",
-  "outputDirectory": "frontend",
   "installCommand": "pnpm install --no-strict-peer-dependencies",
   "framework": "nextjs",
+  "rootDirectory": "frontend",
   "functions": {
     "frontend/src/app/api/**/*.ts": {
       "maxDuration": 30
@@ -22,7 +22,7 @@
   "rewrites": [
     {
       "source": "/api/(.*)",
-      "destination": "/frontend/src/app/api/$1"
+      "destination": "/api/$1"
     }
   ],
   "headers": [
