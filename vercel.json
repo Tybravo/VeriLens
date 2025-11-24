@@ -1,5 +1,5 @@
 {
-  "buildCommand": "cd frontend && npm run build",
+  "buildCommand": "pnpm run build --filter=frontend",
   "outputDirectory": "frontend/.next",
   "installCommand": "pnpm install --no-strict-peer-dependencies",
   "framework": "nextjs",
@@ -14,7 +14,7 @@
     "NEXT_PUBLIC_WALRUS_GATEWAY": "https://gateway.walrus.network",
     "NEXT_PUBLIC_WALRUS_PUBLISHER": "https://publisher.walrus-testnet.walrus.space",
     "NEXT_PUBLIC_WALRUS_AGGREGATOR": "https://aggregator.walrus-testnet.walrus.space",
-    "NEXT_PUBLIC_VERILENS_PACKAGE_ID": "0x8ff864801528b1653db6e326c2a671a8812a81f2b76b1e755df73b62dba93973",
+    "NEXT_PUBLIC_VERILENS_PACKAGE_ID": "0xde2af44918a9eb778ea6ab96fd7d0128f1ceeeaa1659a65a8134b0dd6e367043",
     "NEXT_PUBLIC_CONTRACT_MODULE_NAME": "verilens_oracle",
     "NEXT_PUBLIC_ORACLE_CONFIG_ID": "0xdcef7b954d864807eae045274b75cbf568697fc334b2745d89eb72a7ae5cbcbf",
     "NEXT_PUBLIC_CLOCK_OBJECT_ID": "0x6"
