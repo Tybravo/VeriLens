@@ -103,6 +103,11 @@ const Header = () => {
                 AMBASSADORS
               </Link>
             </motion.div>
+            <motion.div whileHover={{ scale: 1.05 }}>
+              <Link href="/pricing" className="text-secondary hover:text-primary transition-colors">
+                PRICING
+              </Link>
+            </motion.div>
           </div>
 
           {/* Network Selection and Connect Wallet */}
@@ -228,6 +233,11 @@ const Header = () => {
               <motion.div whileHover={{ scale: 1.05 }}>
                 <Link href="/ambassadors" className="block text-secondary-light hover:text-primary transition py-2 border-b border-primary/20" onClick={() => setIsMenuOpen(false)}>
                   AMBASSADORS
+                </Link>
+              </motion.div>
+              <motion.div whileHover={{ scale: 1.05 }}>
+                <Link href="/pricing" className="block text-secondary-light hover:text-primary transition py-2 border-b border-primary/20" onClick={() => setIsMenuOpen(false)}>
+                  PRICING
                 </Link>
               </motion.div>
               
