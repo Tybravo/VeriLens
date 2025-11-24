@@ -116,6 +116,7 @@ function GenerateManifestContent() {
       useCase: 'ai_agent_creation'
     }
   ];
+  
 
   const openModal = (instance) => {
     setModal({
