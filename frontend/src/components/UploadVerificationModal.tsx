@@ -471,10 +471,10 @@ const UploadVerificationModal: React.FC<UploadVerificationModalProps> = ({
           tx.moveCall({
             target: `${VERILENS_PACKAGE_ID}::verilens_oracle::mint_provenance_nft`,
             arguments: [
-              tx.pure(walletAddress, 'address'),
-              tx.pure('Verilens Provenance Badge'),
-              tx.pure(aggregatorLink),
-              tx.pure(JSON.stringify(meta))
+              tx.pure.address(walletAddress),
+              tx.pure.string('Verilens Provenance Badge'),
+              tx.pure.string(aggregatorLink),
+              tx.pure.string(JSON.stringify(meta))
             ]
           });
           const res: any = await signAndExecuteTransaction({ transaction: tx });
@@ -637,10 +637,10 @@ const UploadVerificationModal: React.FC<UploadVerificationModalProps> = ({
             tx.moveCall({
               target: `${VERILENS_PACKAGE_ID}::verilens_oracle::mint_provenance_nft`,
               arguments: [
-                tx.pure(walletAddress, 'address'),
-                tx.pure('Verilens Provenance Badge'),
-                tx.pure(aggregatorLink),
-                tx.pure(JSON.stringify(meta))
+                  tx.pure.address(walletAddress),
+                  tx.pure.string('Verilens Provenance Badge'),
+                  tx.pure.string(aggregatorLink),
+                  tx.pure.string(JSON.stringify(meta))
               ]
             });
             const res: any = await signAndExecuteTransaction({ transaction: tx });
