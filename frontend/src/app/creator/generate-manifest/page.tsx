@@ -1,18 +1,31 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
-import { Plus, X, Sparkles, Image, Camera, Palette, Award, Bitcoin, Code, Gamepad2, Users, Search, FileText, Bot } from 'lucide-react';
+import { Plus, X, Sparkles, Image, Camera, Palette, Award, Bitcoin, Code, Gamepad2, Users, Search, FileText, Bot, Download, CheckCircle, ChevronDown, ChevronUp } from 'lucide-react';
+import {generateManifest as apiGenerateManifest, downloadManifest, ManifestApiError } from '@/services/manifestApi';
 
-export default function GenerateManifestPage() {
+function GenerateManifestContent() {
   const searchParams = useSearchParams();
+  const [expandedCards, setExpandedCards] = useState({});
   const [modal, setModal] = useState({
     isOpen: false,
     instance: null,
     keyValues: [{ key: '', value: '' }],
     formatJSON: true,
-    formatXML: false
+    formatXML: false,
+    loading: false,
+    error: '',
+    result: null
   });
+
+  const toggleCard = (id) => {
+    setExpandedCards(prev => ({
+      ...prev,
+      [id]: !prev[id]
+    }));
+  };
+
 
   const instances = [
     {
@@ -119,17 +132,23 @@ export default function GenerateManifestPage() {
       instance,
       keyValues: [{ key: '', value: '' }],
       formatJSON: true,
-      formatXML: false
+      formatXML: false,
+      loading: false,
+      error: '',
+      result: null
     });
   };
 
-  const closeModal = () => {
+   const closeModal = () => {
     setModal({
       isOpen: false,
       instance: null,
       keyValues: [{ key: '', value: '' }],
       formatJSON: true,
-      formatXML: false
+      formatXML: false,
+      loading: false,
+      error: '',
+      result: null
     });
   };
 
@@ -162,49 +181,79 @@ export default function GenerateManifestPage() {
   };
 
   const generateManifest = async () => {
-    if (!modal.instance) return;
+  if (!modal.instance) return;
 
-    const customFields = {};
-    modal.keyValues.forEach(({ key, value }) => {
-      if (key.trim() && value.trim()) {
-        customFields[key.trim()] = value.trim();
-      }
-    });
+  // Validate formats
+  if (!modal.formatJSON && !modal.formatXML) {
+    setModal(prev => ({ ...prev, error: 'Please select at least one format' }));
+    return;
+  }
 
-    const payload = {
-      verilens: {
-        use_case: modal.instance.useCase,
-        timestamp: new Date().toISOString(),
-        custom_fields: customFields
-      },
-      format: {
-        json: modal.formatJSON,
-        xml: modal.formatXML
-      }
-    };
-
-    try {
-      const response = await fetch('/api/generate-manifest', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(payload)
-      });
-
-      if (response.ok) {
-        const result = await response.json();
-        console.log('Manifest generated:', result);
-        closeModal();
-      } else {
-        console.error('Failed to generate manifest');
-      }
-    } catch (error) {
-      console.error('Error generating manifest:', error);
+  // Build custom fields from key-value pairs
+  const customFields = {};
+  modal.keyValues.forEach(({ key, value }) => {
+    if (key.trim() && value.trim()) {
+      customFields[key.trim()] = value.trim();
     }
+  });
+
+  // Validate at least one field
+  if (Object.keys(customFields).length === 0) {
+    setModal(prev => ({ ...prev, error: 'Please add at least one key-value pair' }));
+    return;
+  }
+
+  // Add use case metadata
+  const manifestData = {
+    use_case: modal.instance.useCase,
+    use_case_name: modal.instance.name,
+    timestamp: new Date().toISOString(),
+    ...customFields
   };
 
-  return (
+  const formats = [];
+  if (modal.formatJSON) formats.push('json');
+  if (modal.formatXML) formats.push('xml');
+
+  setModal(prev => ({ ...prev, loading: true, error: '', result: null }));
+
+  try {
+    const result = await apiGenerateManifest(manifestData, formats);
+    
+    setModal(prev => ({ 
+      ...prev, 
+      loading: false, 
+      result,
+      error: ''
+    }));
+
+  } catch (error) {
+    console.error('Manifest generation error:', error);
+    setModal(prev => ({ 
+      ...prev, 
+      loading: false,
+      error: error instanceof ManifestApiError 
+        ? error.message 
+        : 'Failed to generate manifest. Please try again.'
+    }));
+  }
+};
+
+const handleDownload = (type) => {
+  if (!modal.result) return;
+
+  const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+  const useCaseSlug = modal.instance?.useCase || 'manifest';
+  
+  if (type === 'json' && modal.result.json) {
+    const content = JSON.stringify(modal.result.json, null, 2);
+    downloadManifest(content, `${useCaseSlug}-${timestamp}.json`, 'json');
+  } else if (type === 'xml' && modal.result.xml) {
+    downloadManifest(modal.result.xml, `${useCaseSlug}-${timestamp}.xml`, 'xml');
+  }
+};
+
+  return ((
     <div className="min-h-screen bg-gray-900 py-12 px-4">
       <div className="max-w-7xl mx-auto">
         <div className="text-center mb-12">
@@ -216,56 +265,73 @@ export default function GenerateManifestPage() {
           </p>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 m-2">
+        {/* 3 Cards Per Row Grid */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {instances.map((instance) => (
             <div
               key={instance.id}
-              className="bg-gray-800 rounded-lg p-6 border border-gray-700 transition-all duration-300 transform hover:scale-[1.02] hover:border-[#0083D4] hover:shadow-[0_0_24px_#0083D4]"
+              className="bg-gray-800/50 backdrop-blur-sm rounded-xl p-5 border border-gray-700/50 transition-all duration-300 hover:border-[#0083D4] hover:shadow-lg hover:shadow-[#0083D4]/20 flex flex-col"
             >
-              <div className="flex flex-col sm:flex-row sm:items-start sm:space-x-4 space-y-4 sm:space-y-0">
-                <div className="flex-shrink-0">
-                  <div className="w-16 h-16 bg-purple-900/30 rounded-lg flex items-center justify-center border border-purple-500/30">
-                    {instance.icon}
-                  </div>
+              {/* Card Header */}
+              <div className="flex items-start gap-3 mb-4">
+                <div className="flex-shrink-0 w-12 h-12 bg-gradient-to-br from-purple-900/40 to-purple-800/30 rounded-lg flex items-center justify-center border border-purple-500/30">
+                  {instance.icon}
                 </div>
-                
-                <div className="flex-1 min-w-0">
-                  <h3 className="text-lg font-semibold text-[#0083D4] mb-2">
-                    {instance.name}
-                  </h3>
-                  
-                  <div className="mb-4">
-                    <p className="text-sm font-medium text-purple-300 mb-1">
-                      Problem:
-                    </p>
-                    <p className="text-sm text-white leading-relaxed">
-                      {instance.problem}
-                    </p>
-                  </div>
-                  
-                  <div className="mb-4">
-                    <p className="text-sm font-medium text-purple-300 mb-1">
-                      Solution:
-                    </p>
-                    <p className="text-sm text-white leading-relaxed">
-                      {instance.solution}
-                    </p>
-                  </div>
-                </div>
+                <h3 className="text-base font-semibold text-[#0083D4] leading-tight flex-1">
+                  {instance.name}
+                </h3>
+              </div>
 
-                <div className="flex-shrink-0">
+              {/* Problem Section - Always Visible */}
+              <div className="mb-3">
+                <p className="text-xs font-medium text-purple-300 mb-1">Problem:</p>
+                <p className="text-sm text-gray-300 leading-relaxed line-clamp-2">
+                  {instance.problem}
+                </p>
+              </div>
+
+              {/* Expandable Solution Section */}
+              <div className="mb-4 flex-1">
+                <div className="flex items-center justify-between mb-1">
+                  <p className="text-xs font-medium text-purple-300">Solution:</p>
                   <button
-                    onClick={() => openModal(instance)}
-                    className="px-6 py-3 bg-[#0f79bb] text-white font-medium rounded-lg border-2 border-purple-400 hover:bg-purple-600 hover:shadow-lg hover:shadow-purple-400/50 hover:border-purple-300 transition-all duration-300 transform hover:scale-105"
+                    onClick={() => toggleCard(instance.id)}
+                    className="text-purple-400 hover:text-purple-300 transition-colors"
                   >
-                    Generate Manifest
+                    {expandedCards[instance.id] ? (
+                      <ChevronUp className="w-4 h-4" />
+                    ) : (
+                      <ChevronDown className="w-4 h-4" />
+                    )}
                   </button>
                 </div>
+                <div className={`text-sm text-gray-300 leading-relaxed overflow-hidden transition-all duration-300 ${
+                  expandedCards[instance.id] ? 'max-h-96 overflow-y-auto pr-2' : 'max-h-12 line-clamp-2'
+                }`}>
+                  {instance.solution}
+                </div>
+                {!expandedCards[instance.id] && (
+                  <button
+                    onClick={() => toggleCard(instance.id)}
+                    className="text-xs text-[#0083D4] hover:text-[#0066a8] mt-1 font-medium"
+                  >
+                    Read more
+                  </button>
+                )}
               </div>
+
+              {/* CTA Button */}
+              <button
+                onClick={() => openModal(instance)}
+                className="w-full px-4 py-2.5 bg-[#0f79bb] text-white text-sm font-medium rounded-lg border border-purple-400/50 hover:bg-purple-600 hover:shadow-lg hover:shadow-purple-400/30 transition-all duration-300 transform hover:scale-[1.02]"
+              >
+                Generate Manifest
+              </button>
             </div>
           ))}
         </div>
       </div>
+
 
       {/* Modal */}
       {modal.isOpen && modal.instance && (
@@ -289,77 +355,169 @@ export default function GenerateManifestPage() {
             </div>
 
             <div className="space-y-4 p-6 overflow-y-auto flex-1">
-              <h3 className="text-lg font-semibold text-white mb-4">
-                Manifest Key-Value Pairs
-              </h3>
-              
-              {modal.keyValues.map((kv, index) => (
-                <div key={index} className="flex flex-col md:flex-row md:space-x-3 space-y-3 md:space-y-0">
-                  <input
-                    type="text"
-                    placeholder="Key"
-                    value={kv.key}
-                    onChange={(e) => updateKeyValue(index, 'key', e.target.value)}
-                    className="flex-1 px-4 py-3 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/50 focus:outline-none transition-all duration-300 hover:border-blue-400 hover:shadow hover:shadow-blue-400/30"
-                  />
-                  <textarea
-                    placeholder="Value"
-                    value={kv.value}
-                    onChange={(e) => updateKeyValue(index, 'value', e.target.value)}
-                    rows={6}
-                    className="flex-1 px-4 py-3 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/50 focus:outline-none transition-all duration-300 resize-none hover:border-blue-400 hover:shadow hover:shadow-blue-400/30"
-                  />
-                  {modal.keyValues.length > 1 && (
-                    <button
-                      onClick={() => removeKeyValuePair(index)}
-                      className="p-3 text-red-400 hover:text-red-300 hover:bg-red-900/20 rounded-lg transition-all duration-300"
-                    >
-                      <X className="w-5 h-5" />
-                    </button>
+              {modal.result ? (
+                <div className="space-y-6">
+                  <div className="flex items-center gap-2 text-green-400 mb-4">
+                    <CheckCircle className="w-6 h-6" />
+                    <h3 className="text-lg font-semibold">Manifest Generated Successfully!</h3>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {modal.result.json && (
+                      <div className="border-2 border-green-500/30 rounded-lg p-4 bg-green-900/10">
+                        <h4 className="font-semibold text-white mb-2">JSON Format</h4>
+                        <p className="text-sm text-gray-400 mb-3">
+                          Hash: {modal.result.json.hash.substring(0, 16)}...
+                        </p>
+                        <button
+                          onClick={() => handleDownload('json')}
+                          className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-all"
+                        >
+                          <Download className="w-4 h-4" />
+                          Download JSON
+                        </button>
+                        
+                        <details className="mt-3">
+                          <summary className="cursor-pointer text-sm text-gray-400 hover:text-gray-300">
+                            Preview
+                          </summary>
+                          <pre className="mt-2 text-xs bg-gray-900 p-3 rounded overflow-x-auto max-h-40">
+                            {JSON.stringify(modal.result.json, null, 2)}
+                          </pre>
+                        </details>
+                      </div>
+                    )}
+
+                    {modal.result.xml && (
+                      <div className="border-2 border-blue-500/30 rounded-lg p-4 bg-blue-900/10">
+                        <h4 className="font-semibold text-white mb-2">XML Format</h4>
+                        <p className="text-sm text-gray-400 mb-3">
+                          Structured markup file
+                        </p>
+                        <button
+                          onClick={() => handleDownload('xml')}
+                          className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-all"
+                        >
+                          <Download className="w-4 h-4" />
+                          Download XML
+                        </button>
+                        
+                        <details className="mt-3">
+                          <summary className="cursor-pointer text-sm text-gray-400 hover:text-gray-300">
+                            Preview
+                          </summary>
+                          <pre className="mt-2 text-xs bg-gray-900 p-3 rounded overflow-x-auto max-h-40">
+                            {modal.result.xml}
+                          </pre>
+                        </details>
+                      </div>
+                    )}
+                  </div>
+
+                  <button
+                    onClick={closeModal}
+                    className="w-full px-6 py-3 bg-gray-700 hover:bg-gray-600 text-white rounded-lg transition-all"
+                  >
+                    Close
+                  </button>
+                </div>
+              ) : (
+                <>
+                  <h3 className="text-lg font-semibold text-white mb-4">
+                    Manifest Key-Value Pairs
+                  </h3>
+                  
+                  {modal.keyValues.map((kv, index) => (
+                    <div key={index} className="flex flex-col md:flex-row md:space-x-3 space-y-3 md:space-y-0">
+                      <input
+                        type="text"
+                        placeholder="Key"
+                        value={kv.key}
+                        onChange={(e) => updateKeyValue(index, 'key', e.target.value)}
+                        className="flex-1 px-4 py-3 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/50 focus:outline-none transition-all duration-300 hover:border-blue-400 hover:shadow hover:shadow-blue-400/30"
+                      />
+                      <input
+                        type="text"
+                        placeholder="Value"
+                        value={kv.value}
+                        onChange={(e) => updateKeyValue(index, 'value', e.target.value)}
+                        className="flex-1 px-4 py-3 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/50 focus:outline-none transition-all duration-300 hover:border-blue-400 hover:shadow hover:shadow-blue-400/30"
+                      />
+                      {modal.keyValues.length > 1 && (
+                        <button
+                          onClick={() => removeKeyValuePair(index)}
+                          className="p-3 text-red-400 hover:text-red-300 hover:bg-red-900/20 rounded-lg transition-all duration-300"
+                        >
+                          <X className="w-5 h-5" />
+                        </button>
+                      )}
+                    </div>
+                  ))}
+
+                  <button
+                    onClick={addKeyValuePair}
+                    className="flex items-center space-x-2 px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition-all duration-300"
+                  >
+                    <Plus className="w-4 h-4" />
+                    <span>Add Key-Value Pair</span>
+                  </button>
+
+                  {modal.error && (
+                    <div className="bg-red-900/20 border border-red-500 text-red-400 px-4 py-3 rounded-lg">
+                      {modal.error}
+                    </div>
                   )}
-                </div>
-              ))}
 
-              <button
-                onClick={addKeyValuePair}
-                className="flex items-center space-x-2 px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition-all duration-300"
-              >
-                <Plus className="w-4 h-4" />
-                <span>Add Key-Value Pair</span>
-              </button>
-
-              <div className="pt-6 border-t border-gray-700">
-                <div className="mb-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <label className="flex items-center space-x-3 bg-gray-700/50 rounded-lg p-3 border border-gray-600 hover:border-blue-400 hover:shadow hover:shadow-blue-400/30 transition-all">
-                    <input
-                      type="checkbox"
-                      checked={modal.formatJSON}
-                      onChange={(e) => setModal(prev => ({ ...prev, formatJSON: e.target.checked }))}
-                      className="h-4 w-4 rounded border-gray-500 text-blue-500 focus:ring-blue-500"
-                    />
-                    <span className="text-white text-sm">JSON format</span>
-                  </label>
-                  <label className="flex items-center space-x-3 bg-gray-700/50 rounded-lg p-3 border border-gray-600 hover:border-blue-400 hover:shadow hover:shadow-blue-400/30 transition-all">
-                    <input
-                      type="checkbox"
-                      checked={modal.formatXML}
-                      onChange={(e) => setModal(prev => ({ ...prev, formatXML: e.target.checked }))}
-                      className="h-4 w-4 rounded border-gray-500 text-blue-500 focus:ring-blue-500"
-                    />
-                    <span className="text-white text-sm">XML format</span>
-                  </label>
-                </div>
-                <button
-                  onClick={generateManifest}
-                  className="w-full px-6 py-3 bg-[#0f79bb] text-white font-medium rounded-lg border-2 border-purple-400 hover:bg-purple-600 hover:shadow-lg hover:shadow-purple-400/50 transition-all duration-300 transform hover:scale-105"
-                >
-                  Generate Manifest
-                </button>
-              </div>
+                  <div className="pt-6 border-t border-gray-700">
+                    <div className="mb-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <label className="flex items-center space-x-3 bg-gray-700/50 rounded-lg p-3 border border-gray-600 hover:border-blue-400 hover:shadow hover:shadow-blue-400/30 transition-all cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={modal.formatJSON}
+                          onChange={(e) => setModal(prev => ({ ...prev, formatJSON: e.target.checked }))}
+                          className="h-4 w-4 rounded border-gray-500 text-blue-500 focus:ring-blue-500"
+                        />
+                        <span className="text-white text-sm">JSON format</span>
+                      </label>
+                      <label className="flex items-center space-x-3 bg-gray-700/50 rounded-lg p-3 border border-gray-600 hover:border-blue-400 hover:shadow hover:shadow-blue-400/30 transition-all cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={modal.formatXML}
+                          onChange={(e) => setModal(prev => ({ ...prev, formatXML: e.target.checked }))}
+                          className="h-4 w-4 rounded border-gray-500 text-blue-500 focus:ring-blue-500"
+                        />
+                        <span className="text-white text-sm">XML format</span>
+                      </label>
+                    </div>
+                    <button
+                      onClick={generateManifest}
+                      disabled={modal.loading}
+                      className="w-full px-6 py-3 bg-[#0f79bb] text-white font-medium rounded-lg border-2 border-purple-400 hover:bg-purple-600 hover:shadow-lg disabled:bg-gray-600 disabled:border-gray-500 disabled:cursor-not-allowed hover:shadow-purple-400/50 transition-all duration-300 transform hover:scale-105"
+                    >
+                      {modal.loading ? (
+                        <span className="flex items-center justify-center gap-2">
+                          <span className="animate-spin">⏳</span>
+                          Generating...
+                        </span>
+                      ) : (
+                        'Generate Manifest'
+                      )}
+                    </button>
+                  </div>
+                </>
+              )}
             </div>
           </div>
         </div>
       )}
     </div>
+  ));
+}
+
+export default function Page() {
+  return (
+    <Suspense fallback={<div />}> 
+      <GenerateManifestContent />
+    </Suspense>
   );
 }
