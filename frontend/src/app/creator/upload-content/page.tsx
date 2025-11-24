@@ -444,7 +444,7 @@ export default function UploadContentPage() {
           <p className="text-xl text-secondary-light max-w-3xl mx-auto">
             Upload your media and C2PA manifest to create verifiable proof of authenticity on the Sui blockchain
           </p>
-          <div className="mt-6">
+          {/* <div className="mt-6">
             <a
               href="/test"
               className="inline-flex items-center space-x-2 px-4 py-2 bg-purple-600 hover:bg-purple-700 rounded-lg text-white font-medium transition-colors"
@@ -454,7 +454,7 @@ export default function UploadContentPage() {
               </svg>
               <span>Test Suite</span>
             </a>
-          </div>
+          </div> */}
         </motion.div>
 
         {/* Wallet Connection Status */}
