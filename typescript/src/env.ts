@@ -5,9 +5,11 @@ dotenv.config();
 
 const envSchema = z.object({
   SUI_NETWORK: z.string(),
-  PACKAGE_ID: z.string(),
-  HEROES_REGISTRY_ID: z.string(),
+  PACKAGE_ID: z.string().optional(),
+  HEROES_REGISTRY_ID: z.string().optional(),
   USER_SECRET_KEY: z.string(),
+  ORACLE_CONFIG_ID: z.string().optional(),
+  DEV_MINT_CAP_ID: z.string().optional(),
 });
 
 // Parse and validate the environment variables
@@ -18,7 +20,9 @@ if (!parsedEnv.success) {
     "❌ Invalid environment variables:",
     JSON.stringify(parsedEnv.error.format(), null, 2)
   );
-  process.exit(1); // Exit the process to prevent runtime issues
+  if (!process.env.JEST_WORKER_ID) {
+    process.exit(1);
+  }
 }
 
-export const ENV = parsedEnv.data;
+export const ENV = parsedEnv.success ? parsedEnv.data : ({} as any);

@@ -10,12 +10,15 @@
   },
   "dependencies": {
     "@emotion/is-prop-valid": "^1.4.0",
-    "@mysten/dapp-kit": "^0.12.0",
+    "@mysten/dapp-kit": "^0.19.9",
     "@mysten/seal": "^0.6.0",
-    "@mysten/sui": "^1.43.1",
+    "@mysten/sui": "^1.45.0",
     "@mysten/walrus": "^0.2.0",
+    "@noble/hashes": "^1.4.0",
+    "@noble/secp256k1": "^2.0.0",
     "@react-three/drei": "^10.7.6",
     "@react-three/fiber": "^8.15.11",
+    "@reduxjs/toolkit": "^2.10.1",
     "@tanstack/react-query": "^5.17.19",
     "@tanstack/react-query-devtools": "^5.17.19",
     "framer-motion": "^12.23.24",
@@ -25,6 +28,8 @@
     "next-themes": "^0.4.6",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
+    "react-redux": "^9.2.0",
+    "sonner": "^2.0.7",
     "three": "^0.163.0"
   },
   "devDependencies": {
@@ -40,11 +45,13 @@
     "eslint-config-next": "14.1.0",
     "postcss": "^8.5.6",
     "tailwindcss": "^3.4.1",
-    "typescript": "5.3.3"
+    "typescript": "5.3.3",
+    "vitest": "^1.6.1"
   },
   "pnpm": {
     "overrides": {
-      "lru-cache": "7.18.3"
+      "lru-cache": "7.18.3",
+      "@mysten/sui": "1.45.0"
     }
   }
 }

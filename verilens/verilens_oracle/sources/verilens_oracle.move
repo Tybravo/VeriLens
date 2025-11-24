@@ -1,16 +1,37 @@
 
 #[allow(implicit_const_copy, duplicate_alias)]
 
-module verilens::verilens_oracle {
-    use std::vector;
+ module verilens::verilens_oracle {
+    use std::vector; 
+    use std::string; 
     use sui::object::{Self, UID};
     use sui::tx_context::{Self, TxContext};
-    use sui::transfer;
+    use sui::transfer; 
+    use sui::display; 
+    use sui::package::{Self, Publisher};  // Add Publisher import
     use sui::event;
     use sui::hash;
     use sui::bcs;
     use sui::ecdsa_k1;
     use sui::clock::{Self, Clock};
+
+    // ──────────────────────────────────────────────────────────────
+    // One-Time-Witness for Publisher
+    // ──────────────────────────────────────────────────────────────
+    /// One-Time-Witness struct - must match module name in ALL CAPS
+    public struct VERILENS_ORACLE has drop {}
+
+    // ──────────────────────────────────────────────────────────────
+    // Module Initializer
+    // ──────────────────────────────────────────────────────────────
+    /// Called automatically on publish - creates Publisher object
+    fun init(otw: VERILENS_ORACLE, ctx: &mut TxContext) {
+        let publisher = package::claim(otw, ctx);
+        transfer::public_transfer(publisher, tx_context::sender(ctx));
+    }
+
+    // ... rest of your code ...
+    
 
     // ──────────────────────────────────────────────────────────────
     // Errors
@@ -23,11 +44,11 @@ module verilens::verilens_oracle {
     // ──────────────────────────────────────────────────────────────
     // SHA-256 hash of the exact C2PA verification binary run inside Nautilus TEE
     #[allow(unused_const)]
-    const EXPECTED_CODE_HASH: vector<u8> = x"0000000000000000000000000000000000000000000000000000000000000000";
+    const EXPECTED_CODE_HASH: vector<u8> = x"30c072e31f24a5798d988c15588d0fd1f506653ca1656dda5f9ceedb78f8cde6";
 
     // Compressed secp256k1 public key (33 bytes) of the Nautilus TEE instance
     #[allow(unused_const)]
-    const TRUSTED_TEE_PUBKEY: vector<u8> = x"020000000000000000000000000000000000000000000000000000000000000000";
+    const TRUSTED_TEE_PUBKEY: vector<u8> = x"02b758ca11a68c04f2ebcb4b3bee0b5a1dd196e36cdc43817395ad2e51bbfe8b32";
 
     public struct OracleConfig has key {
         id: UID,
@@ -51,16 +72,31 @@ module verilens::verilens_oracle {
 
     // Minted on successful verification — proves provenance on-chain
     
-    public struct ProvenanceCertificate has key {
-        id: UID,
-        media_blob_id: vector<u8>,
-        manifest_blob_id: vector<u8>,
-        prover_ttee_id: vector<u8>,
-        attestation_hash: vector<u8>,
-        timestamp_ms: u64,
-        owner: address,
-        attestor: address,
-    }
+     public struct ProvenanceCertificate has key { 
+         id: UID, 
+         media_blob_id: vector<u8>, 
+         manifest_blob_id: vector<u8>, 
+         prover_ttee_id: vector<u8>, 
+         attestation_hash: vector<u8>, 
+         timestamp_ms: u64, 
+         owner: address, 
+         attestor: address, 
+     } 
+
+     // Visual badge NFT minted in Stage 5
+     public struct ProvenanceBadge has key, store {
+         id: UID,
+         name: string::String,
+         image_url: string::String,
+         metadata_json: string::String,
+     }
+
+     public struct ProvenanceCertificateNFT has key, store {
+         id: UID,
+         name: string::String,
+         image_url: string::String,
+         metadata_json: string::String,
+     }
 
     // ──────────────────────────────────────────────────────────────
     // Public entry functions
@@ -151,7 +187,7 @@ module verilens::verilens_oracle {
         transfer::transfer(certificate, owner);
     }
 
-    public entry fun submit_mock_attestation(
+     public entry fun submit_mock_attestation( 
         _cap: &DevMintCap,
         config: &OracleConfig,
         media_blob_id: vector<u8>,
@@ -185,11 +221,11 @@ module verilens::verilens_oracle {
             attestor: tx_context::sender(ctx),
         };
         transfer::transfer(certificate, owner);
-    }
+     } 
 
-    // ──────────────────────────────────────────────────────────────
-    // Internal helpers
-    // ──────────────────────────────────────────────────────────────
+     // ────────────────────────────────────────────────────────────── 
+     // Internal helpers 
+     // ────────────────────────────────────────────────────────────── 
     fun build_attestation_message(
         blob_content: &vector<u8>,
         blob_manifest: &vector<u8>,
@@ -229,14 +265,14 @@ module verilens::verilens_oracle {
         OracleConfig { id: object::new(ctx), expected_code_hash: EXPECTED_CODE_HASH, trusted_pubkey: TRUSTED_TEE_PUBKEY }
     }
 
-    #[test_only]
-    public fun destroy_test_config(config: OracleConfig) {
-        let OracleConfig { id, expected_code_hash: _, trusted_pubkey: _ } = config;
-        id.delete();
-    }
+     #[test_only] 
+     public fun destroy_test_config(config: OracleConfig) { 
+         let OracleConfig { id, expected_code_hash: _, trusted_pubkey: _ } = config; 
+         id.delete(); 
+     } 
 
-    #[test_only]
-    public entry fun mint_test_certificate(
+     #[test_only] 
+     public entry fun mint_test_certificate( 
         config: &OracleConfig,
         media_blob_id: vector<u8>,
         manifest_blob_id: vector<u8>,
@@ -268,6 +304,77 @@ module verilens::verilens_oracle {
             owner,
             attestor: tx_context::sender(ctx),
         };
-        transfer::transfer(certificate, owner);
+         transfer::transfer(certificate, owner); 
+     } 
+
+     // ──────────────────────────────────────────────────────────────
+     // Badge Minting (Stage 5)
+     // ──────────────────────────────────────────────────────────────
+     public entry fun mint_provenance_nft(
+         recipient: address,
+         name: string::String,
+         image_url: string::String,
+         metadata_json: string::String,
+         ctx: &mut TxContext,
+     ) {
+         let badge = ProvenanceBadge {
+             id: object::new(ctx),
+             name,
+             image_url,
+             metadata_json,
+         };
+         transfer::transfer(badge, recipient);
+     }
+
+     public entry fun mint_certificate_nft(
+         recipient: address,
+         name: string::String,
+         image_url: string::String,
+         metadata_json: string::String,
+         ctx: &mut TxContext,
+     ) {
+         let cert = ProvenanceCertificateNFT {
+             id: object::new(ctx),
+             name,
+             image_url,
+             metadata_json,
+         };
+         transfer::transfer(cert, recipient);
+     }
+
+     // Initialize wallet display metadata so badges render in wallets.
+  
+    #[allow(lint(share_owned))]
+    public entry fun init_badge_display(pub: &Publisher, ctx: &mut TxContext) {
+        let keys = vector[
+            string::utf8(b"name"),
+            string::utf8(b"image_url"),
+            string::utf8(b"description")
+        ];
+        let values = vector[
+            string::utf8(b"{name}"),
+            string::utf8(b"{image_url}"),
+            string::utf8(b"{metadata_json}")
+        ];
+        let mut d = display::new_with_fields<ProvenanceBadge>(pub, keys, values, ctx);
+        display::update_version(&mut d);
+        transfer::public_share_object(d);  // Changed from transfer::share_object
     }
-}
+
+    #[allow(lint(share_owned))]
+    public entry fun init_certificate_display(pub: &Publisher, ctx: &mut TxContext) {
+        let keys = vector[
+            string::utf8(b"name"),
+            string::utf8(b"image_url"),
+            string::utf8(b"description")
+        ];
+        let values = vector[
+            string::utf8(b"{name}"),
+            string::utf8(b"{image_url}"),
+            string::utf8(b"{metadata_json}")
+        ];
+        let mut d = display::new_with_fields<ProvenanceCertificateNFT>(pub, keys, values, ctx);
+        display::update_version(&mut d);
+        transfer::public_share_object(d);  // Changed from transfer::share_object
+    }
+} 
