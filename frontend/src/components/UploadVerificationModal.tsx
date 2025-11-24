@@ -292,12 +292,13 @@ const UploadVerificationModal: React.FC<UploadVerificationModalProps> = ({
         const enc = new TextEncoder();
         const mediaIdBytes = enc.encode(mediaBlobId);
         const manifestIdBytes = enc.encode(manifestBlobId);
-        const mediaVec = bcs.vector(bcs.U8).serialize(Array.from(mediaIdBytes));
-        const manifestVec = bcs.vector(bcs.U8).serialize(Array.from(manifestIdBytes));
         const tx = new Transaction();
         tx.moveCall({
           target: `${VERILENS_PACKAGE_ID}::verilens_oracle::request_verification`,
-          arguments: [tx.object(mediaVec), tx.object(manifestVec)],
+          arguments: [
+            tx.pure(bcs.vector(bcs.U8), Array.from(mediaIdBytes)),
+            tx.pure(bcs.vector(bcs.U8), Array.from(manifestIdBytes))
+          ],
         });
         const result: any = await signAndExecuteTransaction({ transaction: tx });
         const digest = result?.digest || result?.effects?.transactionDigest || result?.data?.digest || '';
@@ -562,10 +563,14 @@ const UploadVerificationModal: React.FC<UploadVerificationModalProps> = ({
           const enc = new TextEncoder();
           const mediaIdBytes = enc.encode(walrusMediaId!);
           const manifestIdBytes = enc.encode(walrusManifestId!);
-          const mediaVec = bcs.vector(bcs.U8).serialize(Array.from(mediaIdBytes));
-          const manifestVec = bcs.vector(bcs.U8).serialize(Array.from(manifestIdBytes));
           const tx = new Transaction();
-          tx.moveCall({ target: `${VERILENS_PACKAGE_ID}::verilens_oracle::request_verification`, arguments: [tx.object(mediaVec), tx.object(manifestVec)] });
+          tx.moveCall({ 
+            target: `${VERILENS_PACKAGE_ID}::verilens_oracle::request_verification`, 
+            arguments: [
+              tx.pure(bcs.vector(bcs.U8), Array.from(mediaIdBytes)),
+              tx.pure(bcs.vector(bcs.U8), Array.from(manifestIdBytes))
+            ] 
+          });
           setAwaitingSignature(true);
           const result: any = await signAndExecuteTransaction({ transaction: tx });
           const digest = result?.digest || result?.effects?.transactionDigest || result?.data?.digest || '';
