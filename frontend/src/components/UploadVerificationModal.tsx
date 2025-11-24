@@ -297,7 +297,7 @@ const UploadVerificationModal: React.FC<UploadVerificationModalProps> = ({
         const tx = new Transaction();
         tx.moveCall({
           target: `${VERILENS_PACKAGE_ID}::verilens_oracle::request_verification`,
-          arguments: [tx.pure(mediaVec), tx.pure(manifestVec)],
+          arguments: [tx.object(mediaVec), tx.object(manifestVec)],
         });
         const result: any = await signAndExecuteTransaction({ transaction: tx });
         const digest = result?.digest || result?.effects?.transactionDigest || result?.data?.digest || '';
@@ -503,10 +503,10 @@ const UploadVerificationModal: React.FC<UploadVerificationModalProps> = ({
           tx2.moveCall({
             target: `${VERILENS_PACKAGE_ID}::verilens_oracle::mint_certificate_nft`,
             arguments: [
-              tx2.pure(walletAddress, 'address'),
-              tx2.pure('Verilens Provenance Certificate'),
-              tx2.pure(certLink),
-              tx2.pure(JSON.stringify(certMeta))
+              tx2.pure.address(walletAddress),
+              tx2.pure.string('Verilens Provenance Certificate'),
+              tx2.pure.string(certLink),
+              tx2.pure.string(JSON.stringify(certMeta))
             ]
           });
           const res2: any = await signAndExecuteTransaction({ transaction: tx2 });
@@ -565,7 +565,7 @@ const UploadVerificationModal: React.FC<UploadVerificationModalProps> = ({
           const mediaVec = bcs.vector(bcs.U8).serialize(Array.from(mediaIdBytes));
           const manifestVec = bcs.vector(bcs.U8).serialize(Array.from(manifestIdBytes));
           const tx = new Transaction();
-          tx.moveCall({ target: `${VERILENS_PACKAGE_ID}::verilens_oracle::request_verification`, arguments: [tx.pure(mediaVec), tx.pure(manifestVec)] });
+          tx.moveCall({ target: `${VERILENS_PACKAGE_ID}::verilens_oracle::request_verification`, arguments: [tx.object(mediaVec), tx.object(manifestVec)] });
           setAwaitingSignature(true);
           const result: any = await signAndExecuteTransaction({ transaction: tx });
           const digest = result?.digest || result?.effects?.transactionDigest || result?.data?.digest || '';
@@ -664,10 +664,10 @@ const UploadVerificationModal: React.FC<UploadVerificationModalProps> = ({
             tx2.moveCall({
               target: `${VERILENS_PACKAGE_ID}::verilens_oracle::mint_certificate_nft`,
               arguments: [
-                tx2.pure(walletAddress, 'address'),
-                tx2.pure('Verilens Provenance Certificate'),
-                tx2.pure(certLink),
-                tx2.pure(JSON.stringify(certMeta))
+                tx2.pure.address(walletAddress),
+                tx2.pure.string('Verilens Provenance Certificate'),
+                tx2.pure.string(certLink),
+                tx2.pure.string(JSON.stringify(certMeta))
               ]
             });
             const res2: any = await signAndExecuteTransaction({ transaction: tx2 });
