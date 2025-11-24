@@ -1,10 +1,9 @@
 {
-  "buildCommand": "pnpm --filter=frontend run build",
-  "installCommand": "pnpm install --no-strict-peer-dependencies",
+  "buildCommand": "pnpm run build",
+  "installCommand": "cd .. && pnpm install --no-strict-peer-dependencies",
   "framework": "nextjs",
-  "rootDirectory": "frontend",
   "functions": {
-    "frontend/src/app/api/**/*.ts": {
+    "src/app/api/**/*.ts": {
       "maxDuration": 30
     }
   },
@@ -19,12 +18,6 @@
     "NEXT_PUBLIC_ORACLE_CONFIG_ID": "0xdcef7b954d864807eae045274b75cbf568697fc334b2745d89eb72a7ae5cbcbf",
     "NEXT_PUBLIC_CLOCK_OBJECT_ID": "0x6"
   },
-  "rewrites": [
-    {
-      "source": "/api/(.*)",
-      "destination": "/api/$1"
-    }
-  ],
   "headers": [
     {
       "source": "/(.*)",
@@ -66,3 +59,4 @@
     }
   ]
 }
+
