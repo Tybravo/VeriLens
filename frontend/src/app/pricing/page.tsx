@@ -67,7 +67,7 @@ export default function PricingPage() {
   ];
 
   return (
-    <div className="min-h-screen bg-gray-900 py-16 px-4">
+    <div className="min-h-screen bg-gray-900 -mt-10 py-16 px-4">
       <div className="max-w-7xl mx-auto">
         {/* Header */}
         <div className="text-center mb-16">

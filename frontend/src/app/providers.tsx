@@ -1,11 +1,10 @@
-'use client'; 'use client';
+'use client';
 
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ThemeProvider } from 'next-themes';
-import { SuiClientProvider, WalletProvider } from '@mysten/dapp-kit';
+import { SuiClientProvider, WalletProvider, useDisconnectWallet } from '@mysten/dapp-kit';
 import { networkConfig } from '@/lib/networkConfig';
 import { RegisterEnokiWallets } from '@/components/register-enoki-wallets';
-import { SuiClientProvider, WalletProvider, createNetworkConfig, useDisconnectWallet } from '@mysten/dapp-kit';
 import React, { useEffect, useRef } from 'react';
 import { Provider as ReduxProvider } from 'react-redux';
 import { store } from '@/store/workflow';
@@ -19,11 +18,9 @@ export function Providers({ children }: { children: React.ReactNode }) {
     <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
       <QueryClientProvider client={queryClient}>
         <SuiClientProvider networks={networkConfig} defaultNetwork="testnet">
-          <WalletProvider>
-          <RegisterEnokiWallets />
-            {children}
           <WalletProvider autoConnect>
             <ReduxProvider store={store}>
+              <RegisterEnokiWallets />
               <IdleWalletGuard>{children}</IdleWalletGuard>
             </ReduxProvider>
           </WalletProvider>

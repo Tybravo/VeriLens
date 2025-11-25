@@ -98,11 +98,11 @@ const Header = () => {
                 INSTANCES
               </Link>
             </motion.div>
-            <motion.div whileHover={{ scale: 1.05 }}>
+            {/* <motion.div whileHover={{ scale: 1.05 }}>
               <Link href="/ambassadors" className="text-secondary hover:text-primary transition-colors">
                 AMBASSADORS
               </Link>
-            </motion.div>
+            </motion.div> */}
             <motion.div whileHover={{ scale: 1.05 }}>
               <Link href="/pricing" className="text-secondary hover:text-primary transition-colors">
                 PRICING
