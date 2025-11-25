@@ -27,7 +27,7 @@ const Footer = () => {
         {/* Center Logos Row: Walrus, Nautilus, Seal - Centered and Below Title */}
         <div className="flex flex-col sm:flex-row items-center justify-center sm:space-x-12 space-y-6 sm:space-y-0 mb-12">
           <motion.img
-            src="/Walruslogo.png"
+            src="/WalrusLogo.png"
             alt="Walrus Logo"
             className="h-28 w-auto object-contain"
             initial={{ opacity: 0, y: 10 }}
