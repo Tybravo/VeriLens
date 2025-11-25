@@ -10,6 +10,10 @@
   },
   "dependencies": {
     "@emotion/is-prop-valid": "^1.4.0",
+    "@mysten/dapp-kit": "^0.19.8",
+    "@mysten/enoki": "^0.12.10",
+    "@mysten/seal": "^0.6.0",
+    "@mysten/sui": "^1.44.0",
     "@mysten/dapp-kit": "^0.19.9",
     "@mysten/seal": "^0.6.0",
     "@mysten/sui": "^1.45.0",
