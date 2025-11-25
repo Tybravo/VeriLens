@@ -1,28 +1,17 @@
-'use client';'use client';
+'use client';
 
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ThemeProvider } from 'next-themes';
-import { SuiClientProvider, WalletProvider, createNetworkConfig, useDisconnectWallet } from '@mysten/dapp-kit';
+import { SuiClientProvider, WalletProvider, useDisconnectWallet } from '@mysten/dapp-kit';
+import { networkConfig } from '@/lib/networkConfig';
+import { RegisterEnokiWallets } from '@/components/register-enoki-wallets';
 import React, { useEffect, useRef } from 'react';
 import { Provider as ReduxProvider } from 'react-redux';
 import { store } from '@/store/workflow';
 
 // Create QueryClient
-const queryClient = new QueryClient({
-  defaultOptions: {
-    queries: {
-      refetchOnWindowFocus: false,
-      retry: 1,
-    },
-  },
-});
+const queryClient = new QueryClient();
 
-// Sui network configuration
-const { networkConfig } = createNetworkConfig({
-  testnet: { url: 'https://fullnode.testnet.sui.io:443' },
-  mainnet: { url: 'https://fullnode.mainnet.sui.io:443' },
-  localnet: { url: 'http://127.0.0.1:9000' }
-});
 
 export function Providers({ children }: { children: React.ReactNode }) {
   return (
@@ -31,6 +20,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
         <SuiClientProvider networks={networkConfig} defaultNetwork="testnet">
           <WalletProvider autoConnect>
             <ReduxProvider store={store}>
+              <RegisterEnokiWallets />
               <IdleWalletGuard>{children}</IdleWalletGuard>
             </ReduxProvider>
           </WalletProvider>
