@@ -1,5 +1,3 @@
-import * as crypto from "crypto";
-
 export async function POST(request: Request) {
   const { data, formats } = await request.json();
 
@@ -11,24 +9,29 @@ export async function POST(request: Request) {
     return new Response(JSON.stringify({ error: "Missing 'formats' array" }), { status: 400 });
   }
 
-  const jsonStr = JSON.stringify(data);
-  const hash = crypto.createHash("sha256").update(jsonStr).digest("hex");
+  const normalized: Record<string, string | number | boolean | null> = {};
+  for (const [k, v] of Object.entries(data)) {
+    const key = k.replace(/\s+/g, "_").trim();
+    normalized[key] = v as any;
+  }
 
-  const manifest = {
-    version: "1.0.0",
-    timestamp: Date.now(),
-    hash,
-    payload: data,
-    generatedBy: "VeriLens Manifest Engine",
+  const useCaseName = (normalized["use_case_name"] ?? "Authentic AI-Generated Media Verification") as string;
+  const flat = {
+    ...normalized,
+    generatedBy: "VeriLens Manifest Generator",
+    use_case_name: useCaseName,
+    timestamp: new Date().toISOString(),
   };
 
   const response: Record<string, any> = {};
   if (formats.includes("json")) {
-    response.json = manifest;
+    response.json = flat;
   }
   if (formats.includes("xml")) {
-    const payloadEntries = Object.entries(data).map(([k, v]) => `<${k}>${String(v)}</${k}>`).join("");
-    const xml = `<?xml version="1.0" encoding="UTF-8"?><manifest><version>1.0.0</version><timestamp>${manifest.timestamp}</timestamp><hash>${manifest.hash}</hash><payload>${payloadEntries}</payload><generatedBy>${manifest.generatedBy}</generatedBy></manifest>`;
+    const entries = Object.entries(flat)
+      .map(([k, v]) => `<${k}>${String(v)}</${k}>`)
+      .join("");
+    const xml = `<?xml version="1.0" encoding="UTF-8"?><manifest>${entries}</manifest>`;
     response.xml = xml;
   }
 

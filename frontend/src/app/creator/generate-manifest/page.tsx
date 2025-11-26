@@ -367,7 +367,7 @@ const handleDownload = (type) => {
                       <div className="border-2 border-green-500/30 rounded-lg p-4 bg-green-900/10">
                         <h4 className="font-semibold text-white mb-2">JSON Format</h4>
                         <p className="text-sm text-gray-400 mb-3">
-                          Hash: {modal.result.json.hash.substring(0, 16)}...
+                          Preview and download the generated JSON.
                         </p>
                         <button
                           onClick={() => handleDownload('json')}
@@ -381,7 +381,7 @@ const handleDownload = (type) => {
                           <summary className="cursor-pointer text-sm text-gray-400 hover:text-gray-300">
                             Preview
                           </summary>
-                          <pre className="mt-2 text-xs bg-gray-900 p-3 rounded overflow-x-auto max-h-40">
+                          <pre className="mt-2 text-xs bg-gray-900 p-3 rounded overflow-x-auto max-h-40 text-white">
                             {JSON.stringify(modal.result.json, null, 2)}
                           </pre>
                         </details>
@@ -406,7 +406,7 @@ const handleDownload = (type) => {
                           <summary className="cursor-pointer text-sm text-gray-400 hover:text-gray-300">
                             Preview
                           </summary>
-                          <pre className="mt-2 text-xs bg-gray-900 p-3 rounded overflow-x-auto max-h-40">
+                          <pre className="mt-2 text-xs bg-gray-900 p-3 rounded overflow-x-auto max-h-40 text-white">
                             {modal.result.xml}
                           </pre>
                         </details>
