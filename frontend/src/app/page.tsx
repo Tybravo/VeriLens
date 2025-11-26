@@ -89,7 +89,7 @@ const HomePage = () => {
 
           {/* Galaxy Noise Overlay */}
           <motion.div
-            className="absolute inset-0 bg-[url('/galaxy-noise.png')] opacity-80 mix-blend-soft-light"
+            className="absolute inset-0 bg-[url('/Galaxy-noise.png')] opacity-80 mix-blend-soft-light"
             animate={{
               opacity: [0.78, 0.82, 0.78],
             }}
