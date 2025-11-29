@@ -11,6 +11,7 @@ export function RegisterEnokiWallets() {
   useEffect(() => {
     if (!isEnokiNetwork(network)) return;
     try {
+      const useEnokiCallback = (process.env.NEXT_PUBLIC_GOOGLE_USE_ENOKI_CALLBACK || '').toLowerCase() === 'true';
       const redirectUrl = typeof window !== 'undefined'
         ? (process.env.NEXT_PUBLIC_GOOGLE_REDIRECT_URL || `${window.location.origin}/auth`)
         : (process.env.NEXT_PUBLIC_GOOGLE_REDIRECT_URL || '/auth');
@@ -19,7 +20,7 @@ export function RegisterEnokiWallets() {
         providers: {
           google: {
             clientId: process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID!,
-            redirectUrl,
+            ...(useEnokiCallback ? {} : { redirectUrl }),
           },
         },
         client: client as any,
