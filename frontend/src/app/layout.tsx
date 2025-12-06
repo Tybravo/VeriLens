@@ -19,6 +19,11 @@ const robotoMono = Roboto_Mono({
 export const metadata: Metadata = {
   title: "Verilens",
   description: "A provanance decentralised laayer on Sui blockchain for authenticity of digital assets",
+  icons: {
+    icon: "/VeriLens_Logo.png",
+    shortcut: "/VeriLens_Logo.png",
+    apple: "/VeriLens_Logo.png",
+  },
 };
 
 export default function RootLayout({
