@@ -1,0 +1,5 @@
+server_mode: !Open
+network: Testnet
+key_server_object_id: 0xREPLACE_WITH_KEY_SERVER_OBJECT_ID
+listen_addr: 0.0.0.0:2024
+node_url: https://fullnode.testnet.sui.io:443

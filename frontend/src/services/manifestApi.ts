@@ -1,4 +1,7 @@
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || '';
+const RAW_API_BASE_URL = (process.env.NEXT_PUBLIC_API_URL || '').trim();
+const API_BASE_URL = /^https?:\/\//.test(RAW_API_BASE_URL)
+  ? RAW_API_BASE_URL.replace(/\/+$/, '')
+  : '';
 
 export interface ManifestPayload {
   [key: string]: string | number | boolean | null;
@@ -25,7 +28,8 @@ export async function generateManifest(
   formats: ('json' | 'xml')[]
 ): Promise<GenerateManifestResponse> {
   try {
-    const response = await fetch(`${API_BASE_URL}/api/manifest/generate`, {
+    const primaryUrl = `${API_BASE_URL}/api/manifest/generate`;
+    const response = await fetch(API_BASE_URL ? primaryUrl : '/api/manifest/generate', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -44,14 +48,24 @@ export async function generateManifest(
 
     return await response.json();
   } catch (error) {
-    if (error instanceof ManifestApiError) {
-      throw error;
+    if (error instanceof ManifestApiError) throw error;
+    if (API_BASE_URL) {
+      try {
+        const fallbackRes = await fetch('/api/manifest/generate', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ data, formats }),
+        });
+        if (!fallbackRes.ok) {
+          const errData = await fallbackRes.json().catch(() => ({}));
+          throw new ManifestApiError(errData.error || 'Failed to generate manifest', fallbackRes.status, errData);
+        }
+        return await fallbackRes.json();
+      } catch (fallbackError) {
+        throw new ManifestApiError('Network error: Unable to connect to manifest service', undefined, fallbackError);
+      }
     }
-    throw new ManifestApiError(
-      'Network error: Unable to connect to manifest service',
-      undefined,
-      error
-    );
+    throw new ManifestApiError('Network error: Unable to connect to manifest service', undefined, error);
   }
 }
 
