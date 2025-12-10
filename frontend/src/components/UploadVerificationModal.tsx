@@ -631,7 +631,7 @@ const UploadVerificationModal: React.FC<UploadVerificationModalProps> = ({
         return;
       }
 
-      // Stage 5: Provenance minting
+      // Stage 5: Provenance minting - OPTIMIZED for performance
       const mintIndex = stages.findIndex(s => s.id === 'provenance-minting');
       setCurrentStage(mintIndex);
       setStages(prev => prev.map((s, i) => i === mintIndex ? { ...s, status: 'processing', error: undefined } : s));
@@ -644,78 +644,108 @@ const UploadVerificationModal: React.FC<UploadVerificationModalProps> = ({
           mediaIdUse = ensured.media;
           manifestIdUse = ensured.manifest;
         }
-        const badgeBlob = await renderBadgeBase();
-        const badgeUrl = URL.createObjectURL(badgeBlob);
-        setBadgePreviewUrl(badgeUrl);
-        const buf = new Uint8Array(await badgeBlob.arrayBuffer());
-        const put = await putWalrus(buf, 5);
-        const j = put.json;
-        const bId = j?.newlyCreated?.blobObject?.blobId || j?.alreadyCertified?.blobId || j?.blobId;
-        if (!bId) throw new Error('Badge Walrus blob ID not found');
+
+        // Prepare badge and certificate in parallel for better performance
+        const [badgeBlob, certificateBlob] = await Promise.all([
+          renderBadgeBase(),
+          renderCertificateImage(walletAddress, mediaIdUse, manifestIdUse, (attestation?.contentHashHex || verificationDigest || null))
+        ]);
+
+        // Set preview URLs immediately for better UX
+        setBadgePreviewUrl(URL.createObjectURL(badgeBlob));
+        setCertificatePreviewUrl(URL.createObjectURL(certificateBlob));
+
+        // Upload both badge and certificate to Walrus in parallel
+        const [badgePut, certificatePut] = await Promise.all([
+          putWalrus(new Uint8Array(await badgeBlob.arrayBuffer()), 3),
+          putWalrus(new Uint8Array(await certificateBlob.arrayBuffer()), 3)
+        ]);
+
+        const bId = badgePut.json?.newlyCreated?.blobObject?.blobId || badgePut.json?.newlyCreated?.blobId || badgePut.json?.alreadyCertified?.blobId || badgePut.json?.blobId;
+        const cId = certificatePut.json?.newlyCreated?.blobObject?.blobId || certificatePut.json?.newlyCreated?.blobId || certificatePut.json?.alreadyCertified?.blobId || certificatePut.json?.blobId;
+
+        if (!bId || !cId) throw new Error('Walrus blob IDs not found');
+
         setBadgeWalrusId(bId);
+        setCertificateWalrusId(cId);
         dispatch(setBadgeWalrusIdGlobal(bId));
 
-        // Initialize display metadata (safe to attempt; ignore errors if already set)
-        // Attempt on-chain mint
-        try {
-          const tx = new Transaction();
-          const aggregatorLink = `${aggregatorUrl}/v1/blobs/${bId}`;
-          const badgeUID = (crypto?.randomUUID?.() || `badge_${Date.now()}_${Math.random().toString(36).slice(2,6)}`);
-          const meta = { ownerAddress: walletAddress, ownerUID: badgeUID, mediaBlobId: mediaIdUse, manifestBlobId: manifestIdUse, verificationDigest: verificationDigest, attestationHash: attestation?.contentHashHex || '', badgeBlobId: bId, badgeUrl: aggregatorLink, sealEncryption };
-          tx.moveCall({
-            target: `${VERILENS_PACKAGE_ID}::verilens_oracle::mint_provenance_nft`,
-            arguments: [
-              tx.pure.address(walletAddress),
-              tx.pure.string('Verilens Provenance Badge'),
-              tx.pure.string(aggregatorLink),
-              tx.pure.string(JSON.stringify(meta))
-            ]
-          });
-          const res: any = await signAndExecuteTransaction({ transaction: tx });
-          const digest = res?.digest || res?.effects?.transactionDigest || res?.data?.digest || '';
-          if (digest) setMintDigest(digest);
-        } catch (mintErr: any) {
-          // Non-blocking: show badge and continue even if mint fails
-          console.error('Minting error:', mintErr);
-        }
+        // Create single transaction for both mints to reduce blockchain interactions
+        const tx = new Transaction();
+        const ownerAddr = (currentAccount?.address || walletAddress);
+        
+        // Badge metadata
+        const aggregatorLink = `${aggregatorUrl}/v1/blobs/${bId}`;
+        const badgeUID = (crypto?.randomUUID?.() || `badge_${Date.now()}_${Math.random().toString(36).slice(2,6)}`);
+        const badgeMeta = { 
+          ownerAddress: walletAddress, 
+          ownerUID: badgeUID, 
+          mediaBlobId: mediaIdUse, 
+          manifestBlobId: manifestIdUse, 
+          verificationDigest: verificationDigest, 
+          attestationHash: attestation?.contentHashHex || '', 
+          badgeBlobId: bId, 
+          badgeUrl: aggregatorLink, 
+          sealEncryption 
+        };
 
-        try {
-          let cId = certificateWalrusId || null;
-          if (!cId) {
-            const certBlob = await renderCertificateImage(walletAddress, mediaIdUse, manifestIdUse, (attestation?.contentHashHex || verificationDigest || null));
-            const certBuf = new Uint8Array(await certBlob.arrayBuffer());
-            const putCert = await fetch(`${publisherUrl}/v1/blobs?epochs=5`, { method: 'PUT', body: new Blob([new Uint8Array(certBuf.buffer as ArrayBuffer)]), headers: { 'Content-Type': 'application/octet-stream' } });
-            if (!putCert.ok) throw new Error('Certificate upload failed');
-            const jc = await putCert.json();
-            cId = jc?.newlyCreated?.blobObject?.blobId || jc?.alreadyCertified?.blobId || jc?.blobId;
-            if (!cId) throw new Error('Certificate Walrus blob ID not found');
-            setCertificateWalrusId(cId);
-          }
-          const tx2 = new Transaction();
-          const certLink = `${aggregatorUrl}/v1/blobs/${cId}`;
-          const ownerAddr = (currentAccount?.address || walletAddress);
-          const certMeta = { type: 'certificate', ownerAddress: ownerAddr, mediaBlobId: mediaIdUse, manifestBlobId: manifestIdUse, verificationDigest: verificationDigest, attestationHash: attestation?.contentHashHex || '', certificateBlobId: cId, certificateUrl: certLink };
-          tx2.moveCall({
-            target: `${VERILENS_PACKAGE_ID}::verilens_oracle::mint_certificate_nft`,
-            arguments: [
-              tx2.pure.address(ownerAddr),
-              tx2.pure.string('Verilens Provenance Certificate'),
-              tx2.pure.string(certLink),
-              tx2.pure.string(JSON.stringify(certMeta))
-            ]
-          });
-          const res2: any = await signAndExecuteTransaction({ transaction: tx2 });
-          const digest2 = res2?.digest || res2?.effects?.transactionDigest || res2?.data?.digest || '';
-          if (!digest2) throw new Error('Certificate mint failed: no transaction digest');
-          setCertificateMintDigest(digest2);
-        } catch (e: any) {
-          setStages(prev => prev.map((s, i) => i === mintIndex ? { ...s, status: 'failed', error: e?.message || 'Certificate minting failed' } : s));
-          setHasFailed(true);
-          setIsProcessing(false);
-          return;
+        // Certificate metadata
+        const certLink = `${aggregatorUrl}/v1/blobs/${cId}`;
+        const certMeta = { 
+          type: 'certificate', 
+          ownerAddress: ownerAddr, 
+          mediaBlobId: mediaIdUse, 
+          manifestBlobId: manifestIdUse, 
+          verificationDigest: verificationDigest, 
+          attestationHash: attestation?.contentHashHex || '', 
+          certificateBlobId: cId, 
+          certificateUrl: certLink 
+        };
+
+        // Mint both NFTs in a single transaction
+        tx.moveCall({
+          target: `${VERILENS_PACKAGE_ID}::verilens_oracle::mint_provenance_nft`,
+          arguments: [
+            tx.pure.address(walletAddress),
+            tx.pure.string('Verilens Provenance Badge'),
+            tx.pure.string(aggregatorLink),
+            tx.pure.string(JSON.stringify(badgeMeta))
+          ]
+        });
+
+        tx.moveCall({
+          target: `${VERILENS_PACKAGE_ID}::verilens_oracle::mint_certificate_nft`,
+          arguments: [
+            tx.pure.address(ownerAddr),
+            tx.pure.string('Verilens Provenance Certificate'),
+            tx.pure.string(certLink),
+            tx.pure.string(JSON.stringify(certMeta))
+          ]
+        });
+
+        // Execute single transaction for both mints
+        const result: any = await signAndExecuteTransaction({ transaction: tx });
+        const digest = result?.digest || result?.effects?.transactionDigest || result?.data?.digest || '';
+        
+        if (digest) {
+          setMintDigest(digest);
+          setCertificateMintDigest(digest); // Same transaction for both
         }
 
         setStages(prev => prev.map((s, i) => i === mintIndex ? { ...s, status: 'completed' } : s));
+        
+        // Create final certificate object
+        const finalCertificate: ProvenanceCertificate = {
+          title: 'Verilens Provenance Certificate',
+          ownerAddress: walletAddress,
+          certificationDate: new Date().toISOString(),
+          mediaBlobId: mediaIdUse,
+          manifestBlobId: manifestIdUse,
+          verificationHash: verificationDigest || '',
+          sealEncryption
+        };
+        setCertificate(finalCertificate);
+        onComplete(finalCertificate);
       } catch (mintingErr: any) {
         setStages(prev => prev.map((s, i) => i === mintIndex ? { ...s, status: 'failed', error: mintingErr?.message || 'Provenance minting failed' } : s));
         setHasFailed(true);
@@ -1064,7 +1094,11 @@ const UploadVerificationModal: React.FC<UploadVerificationModalProps> = ({
               </motion.div>
             )}
 
-            {walrusMediaId && walrusManifestId && (
+            {/* 
+              COMMENTED OUT: Technical details section that shows hash keys, blob IDs, and other technical data
+              Uncomment this section if you need to debug or show technical details to advanced users
+            */}
+            {/* {walrusMediaId && walrusManifestId && (
               <motion.div
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
@@ -1164,88 +1198,198 @@ const UploadVerificationModal: React.FC<UploadVerificationModalProps> = ({
                             </div>
                           </>
                         )}
-                        {badgePreviewUrl && (
-                          <div className="mt-8">
-                            <div className="flex items-center mb-3">
-                              <Award className="w-5 h-5 text-[#B667F1] mr-2" />
-                              <h4 className="text-md font-semibold text-[#B667F1]">Minted Provenance Badge</h4>
-                            </div>
-                            <div className="grid md:grid-cols-3 gap-4">
-                              <div className="md:col-span-1 bg-gray-900 rounded-lg p-3 border border-[#B667F1]/30">
-                                <img src={badgePreviewUrl} alt="Verilens Badge" className="w-full h-auto rounded" />
-                                {mintDigest && (
-                                  <p className="mt-2 text-xs text-gray-400">Mint Tx: <span className="font-mono break-all">{mintDigest}</span></p>
-                                )}
-                                {attestation?.contentHashHex && (
-                                  <p className="mt-1 text-xs text-gray-400">Attestation: <span className="font-mono break-all">{attestation.contentHashHex}</span></p>
-                                )}
-                                {badgeWalrusId && (
-                                  <p className="mt-1 text-xs text-gray-400">Badge Blob ID: <span className="font-mono break-all">{badgeWalrusId}</span></p>
-                                )}
-                              </div>
-                              <div className="md:col-span-1 bg-gray-900 rounded-lg p-3 border border-cyan-400/30">
-                                <h5 className="text-sm font-semibold text-cyan-300 mb-2">Original Media</h5>
-                                <img src={`${aggregatorUrl}/v1/blobs/${walrusMediaId}`} alt="Original Media" className="w-full h-auto rounded" onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }} />
-                                <a href={`${aggregatorUrl}/v1/blobs/${walrusMediaId}`} target="_blank" rel="noopener noreferrer" className="text-xs text-cyan-300 underline">Open media</a>
-                              </div>
-                              <div className="md:col-span-1 bg-gray-900 rounded-lg p-3 border border-blue-400/30">
-                                <h5 className="text-sm font-semibold text-blue-300 mb-2">Manifest</h5>
-                                <a href={`${aggregatorUrl}/v1/blobs/${walrusManifestId}`} target="_blank" rel="noopener noreferrer" className="text-xs text-blue-300 underline">Open manifest</a>
-                                {manifestPlainText ? (
-                                  <pre className="mt-2 text-xs bg-gray-800 p-3 rounded overflow-y-auto max-h-48 text-white whitespace-pre-wrap break-words">
-                                    {manifestPlainText}
-                                  </pre>
-                                ) : (
-                                  <button
-                                    onClick={async () => {
-                                      try {
-                                        const r = await fetchWalrusBlob(walrusManifestId!);
-                                        const buf = await r.res.arrayBuffer();
-                                        const text = new TextDecoder().decode(new Uint8Array(buf));
-                                        setManifestPlainText(text);
-                                      } catch {}
-                                    }}
-                                    className="mt-2 px-3 py-1 text-xs bg-blue-600 hover:bg-blue-700 text-white rounded"
-                                  >
-                                    Load manifest
-                                  </button>
-                                )}
-                              </div>
-                            </div>
-                            {certificatePreviewUrl && (
-                              <div className="mt-8">
-                                <div className="flex items-center mb-3">
-                                  <Award className="w-5 h-5 text-green-400 mr-2" />
-                                  <h4 className="text-md font-semibold text-green-400">Minted Provenance Certificate</h4>
-                                </div>
-                                <div className="grid md:grid-cols-3 gap-4">
-                                  <div className="md:col-span-1 bg-gray-900 rounded-lg p-3 border border-green-400/30">
-                                    <img src={certificatePreviewUrl} alt="Verilens Certificate" className="w-full h-auto rounded" />
-                                    {certificateMintDigest && (
-                                      <p className="mt-2 text-xs text-gray-400">Mint Tx: <span className="font-mono break-all">{certificateMintDigest}</span></p>
-                                    )}
-                                    {certificateWalrusId && (
-                                      <p className="mt-1 text-xs text-gray-400">Certificate Blob ID: <span className="font-mono break-all">{certificateWalrusId}</span></p>
-                                    )}
-                                  </div>
-                                  <div className="md:col-span-2 bg-gray-900 rounded-lg p-3 border border-gray-700/30">
-                                    <h5 className="text-sm font-semibold text-gray-300 mb-2">Certificate Details</h5>
-                                    <div className="text-xs text-gray-300 space-y-1">
-                                      <div>Owner: <span className="font-mono break-all">{walletAddress}</span></div>
-                                      <div>Media: <span className="font-mono break-all">{walrusMediaId}</span></div>
-                                      <div>Manifest: <span className="font-mono break-all">{walrusManifestId}</span></div>
-                                      <div>Verification: <span className="font-mono break-all">{attestation?.contentHashHex || verificationDigest}</span></div>
-                                    </div>
-                                  </div>
-                                </div>
-                              </div>
-                            )}
-                          </div>
-                        )}
                       </div>
                     </div>
                   )}
                 </div>
+              </motion.div>
+            )} */}
+
+            {/* Display only the three items in a responsive row */}
+            {badgePreviewUrl && (
+              <motion.div
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="mt-8 p-6 bg-gray-800 border border-cyan-400/30 rounded-xl"
+              >
+                <div className="mb-6">
+                  <div className="flex items-center">
+                    <Award className="w-5 h-5 text-primary mr-2" />
+                    <h3 className="text-lg font-semibold text-primary">Verification Results</h3>
+                  </div>
+                  <p className="text-sm text-gray-400 mt-1">
+                    Your content has been successfully verified and authenticated
+                  </p>
+                </div>
+
+                {/* Three items in a responsive row */}
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                  {/* Minted NFT Badge */}
+                  <div className="bg-gray-900 rounded-xl p-4 border border-[#B667F1]/30 flex flex-col">
+                    <div className="flex items-center mb-3">
+                      <Award className="w-5 h-5 text-[#B667F1] mr-2" />
+                      <h4 className="text-md font-semibold text-[#B667F1]">Provenance Badge</h4>
+                    </div>
+                    <div className="flex-1 flex flex-col">
+                      <img 
+                        src={badgePreviewUrl} 
+                        alt="Verilens Badge" 
+                        className="w-full h-48 object-contain rounded-lg mb-3"
+                      />
+                      <div className="text-xs text-gray-400 mt-2">
+                        <span className="block">Digital authenticity badge</span>
+                        <span className="block">Minted on Sui blockchain</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Original Media */}
+                  <div className="bg-gray-900 rounded-xl p-4 border border-cyan-400/30 flex flex-col">
+                    <div className="flex items-center mb-3">
+                      <Upload className="w-5 h-5 text-cyan-300 mr-2" />
+                      <h4 className="text-md font-semibold text-cyan-300">Original Media</h4>
+                    </div>
+                    <div className="flex-1 flex flex-col">
+                      <div className="w-full h-48 bg-gray-800 rounded-lg mb-3 overflow-hidden flex items-center justify-center">
+                        <img 
+                          src={`${aggregatorUrl}/v1/blobs/${walrusMediaId}`} 
+                          alt="Original Media" 
+                          className="w-full h-full object-contain"
+                          onError={(e) => { 
+                            (e.currentTarget as HTMLImageElement).style.display = 'none';
+                            const parent = e.currentTarget.parentElement;
+                            if (parent) {
+                              parent.innerHTML = `
+                                <div class="w-full h-full flex items-center justify-center">
+                                  <div class="text-center">
+                                    <Upload className="w-12 h-12 text-gray-600 mx-auto mb-2" />
+                                    <p class="text-sm text-gray-500">Media preview available at source</p>
+                                  </div>
+                                </div>
+                              `;
+                            }
+                          }} 
+                        />
+                      </div>
+                      <div className="text-xs text-gray-400 mt-2">
+                        <span className="block">Original uploaded content</span>
+                        <span className="block">Stored on decentralized storage</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Minted NFT Certificate */}
+                  {certificatePreviewUrl && (
+                    <div className="bg-gray-900 rounded-xl p-4 border border-green-400/30 flex flex-col">
+                      <div className="flex items-center mb-3">
+                        <Award className="w-5 h-5 text-green-400 mr-2" />
+                        <h4 className="text-md font-semibold text-green-400">Provenance Certificate</h4>
+                      </div>
+                      <div className="flex-1 flex flex-col">
+                        <img 
+                          src={certificatePreviewUrl} 
+                          alt="Verilens Certificate" 
+                          className="w-full h-48 object-contain rounded-lg mb-3"
+                        />
+                        <div className="text-xs text-gray-400 mt-2">
+                          <span className="block">Digital provenance certificate</span>
+                          <span className="block">Immutable verification record</span>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/*
+                  COMMENTED OUT: Manifest section with JSON content and links
+                  Uncomment this section if you need to show the manifest content to users
+                */}
+                {/* 
+                <div className="mt-8 pt-6 border-t border-gray-700">
+                  <div className="flex items-center mb-3">
+                    <FileText className="w-5 h-5 text-blue-400 mr-2" />
+                    <h4 className="text-md font-semibold text-blue-400">C2PA Manifest</h4>
+                  </div>
+                  <div className="bg-gray-900 rounded-lg p-4 border border-blue-400/30">
+                    <div className="flex justify-between items-center mb-3">
+                      <a 
+                        href={`${aggregatorUrl}/v1/blobs/${walrusManifestId}`} 
+                        target="_blank" 
+                        rel="noopener noreferrer" 
+                        className="text-sm text-blue-300 underline hover:text-blue-200"
+                      >
+                        Open manifest file
+                      </a>
+                      {manifestPlainText ? (
+                        <button
+                          onClick={() => setManifestPlainText(null)}
+                          className="text-xs px-3 py-1 bg-blue-600 hover:bg-blue-700 text-white rounded"
+                        >
+                          Hide content
+                        </button>
+                      ) : (
+                        <button
+                          onClick={async () => {
+                            try {
+                              const r = await fetchWalrusBlob(walrusManifestId!);
+                              const buf = await r.res.arrayBuffer();
+                              const text = new TextDecoder().decode(new Uint8Array(buf));
+                              setManifestPlainText(text);
+                            } catch (error) {
+                              console.error('Failed to load manifest:', error);
+                            }
+                          }}
+                          className="text-xs px-3 py-1 bg-blue-600 hover:bg-blue-700 text-white rounded"
+                        >
+                          Load manifest content
+                        </button>
+                      )}
+                    </div>
+                    {manifestPlainText && (
+                      <pre className="mt-3 text-xs bg-gray-800 p-3 rounded overflow-y-auto max-h-48 text-white whitespace-pre-wrap break-words">
+                        {manifestPlainText}
+                      </pre>
+                    )}
+                  </div>
+                </div>
+                */}
+
+                {/*
+                  COMMENTED OUT: Certificate Details section with technical information
+                  Uncomment this section if you need to show certificate details to users
+                */}
+                {/* 
+                <div className="mt-8 pt-6 border-t border-gray-700">
+                  <div className="flex items-center mb-3">
+                    <FileText className="w-5 h-5 text-gray-300 mr-2" />
+                    <h4 className="text-md font-semibold text-gray-300">Certificate Details</h4>
+                  </div>
+                  <div className="bg-gray-900 rounded-lg p-4 border border-gray-700/30">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="space-y-3">
+                        <div>
+                          <span className="text-sm text-gray-400">Owner:</span>
+                          <p className="font-mono text-xs break-all text-gray-300 mt-1">{walletAddress}</p>
+                        </div>
+                        <div>
+                          <span className="text-sm text-gray-400">Verification Hash:</span>
+                          <p className="font-mono text-xs break-all text-gray-300 mt-1">{attestation?.contentHashHex || verificationDigest}</p>
+                        </div>
+                      </div>
+                      <div className="space-y-3">
+                        <div>
+                          <span className="text-sm text-gray-400">Media Blob ID:</span>
+                          <p className="font-mono text-xs break-all text-gray-300 mt-1">{walrusMediaId}</p>
+                        </div>
+                        <div>
+                          <span className="text-sm text-gray-400">Manifest Blob ID:</span>
+                          <p className="font-mono text-xs break-all text-gray-300 mt-1">{walrusManifestId}</p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                */}
               </motion.div>
             )}
 
