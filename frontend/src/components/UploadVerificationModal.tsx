@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useSignAndExecuteTransaction, useCurrentAccount } from '@mysten/dapp-kit';
 import { Transaction } from '@mysten/sui/transactions';
 import { bcs } from '@mysten/sui/bcs';
@@ -39,6 +39,7 @@ interface UploadVerificationModalProps {
   walletAddress: string;
   sealEncryption?: boolean;
   network: string;
+  stayOpenOnComplete?: boolean;
 }
 
 const UploadVerificationModal: React.FC<UploadVerificationModalProps> = ({
@@ -50,6 +51,7 @@ const UploadVerificationModal: React.FC<UploadVerificationModalProps> = ({
   walletAddress,
   sealEncryption = false,
   network,
+  stayOpenOnComplete = true,
 }) => {
   const [currentStage, setCurrentStage] = useState(0);
   const createStages = (): WorkflowStage[] => {
@@ -132,6 +134,32 @@ const UploadVerificationModal: React.FC<UploadVerificationModalProps> = ({
   const { mutateAsync: signAndExecuteTransaction } = useSignAndExecuteTransaction();
   const VERILENS_PACKAGE_ID = (process.env.NEXT_PUBLIC_VERILENS_PACKAGE_ID || '');
   const currentAccount = useCurrentAccount();
+
+  // Reusable Sui client
+  const suiClient = useMemo(() => {
+    return new SuiClient({
+      url: getFullnodeUrl(network as any),
+    });
+  }, [network]);
+
+  const executeTransactionWithTimeout = async (transaction: Transaction, timeoutMs = 45000) => {
+    let timeoutHandle: any;
+    try {
+      const timeoutPromise = new Promise((_, reject) => {
+        timeoutHandle = setTimeout(() => reject(new Error(`Transaction timed out after ${timeoutMs}ms`)), timeoutMs);
+      });
+      const result: any = await Promise.race([
+        signAndExecuteTransaction({ transaction }),
+        timeoutPromise,
+      ]);
+      clearTimeout(timeoutHandle);
+      return result;
+    } catch (error: any) {
+      if (timeoutHandle) clearTimeout(timeoutHandle);
+      if (error.message?.includes('gas budget')) throw new Error('Insufficient gas budget for transaction');
+      throw error;
+    }
+  };
 
   const publisherUrl = network === 'mainnet' ? 'https://publisher.walrus.space' : 'https://publisher.walrus-testnet.walrus.space';
   const aggregatorUrl = network === 'mainnet' ? 'https://aggregator.walrus.space' : 'https://aggregator.walrus-testnet.walrus.space';
@@ -372,9 +400,8 @@ const UploadVerificationModal: React.FC<UploadVerificationModalProps> = ({
           setCurrentStage(sealingIndex);
           setStages(prev => prev.map((stage, idx) => idx === sealingIndex ? { ...stage, status: 'processing', error: undefined } : stage));
           try {
-            const client = new SuiClient({ url: getFullnodeUrl(network as any) });
             const sealClient = new SealClient({
-              suiClient: client as any,
+              suiClient: suiClient as any,
               serverConfigs: sealServerConfigs,
               verifyKeyServers: false,
             });
@@ -527,11 +554,10 @@ const UploadVerificationModal: React.FC<UploadVerificationModalProps> = ({
           }
           const data = await res.json();
           // Quick validations: tx digest exists and signature/hash formats
-          const client = new SuiClient({ url: getFullnodeUrl(network as any) });
           const txDigest = digest || verificationDigest || '';
           if (!txDigest) throw new Error('Missing verification digest from Stage 2');
           try {
-            await client.getTransactionBlock({ digest: txDigest });
+            await suiClient.getTransactionBlock({ digest: txDigest });
           } catch {
             throw new Error('Transaction digest not found on chain');
           }
@@ -596,9 +622,8 @@ const UploadVerificationModal: React.FC<UploadVerificationModalProps> = ({
                 setSealInfo(prev => prev ? { ...prev, decryptTest: 'failed' } : { sealId: 'software-seal', accessPolicy: 'software-seal', threshold: 2, decryptTest: 'failed' });
               }
             } else {
-              const client = new SuiClient({ url: getFullnodeUrl(network as any) });
               const sealClient = new SealClient({
-                suiClient: client as any,
+                suiClient: suiClient as any,
                 serverConfigs: sealServerConfigs,
                 verifyKeyServers: false,
               });
@@ -631,7 +656,7 @@ const UploadVerificationModal: React.FC<UploadVerificationModalProps> = ({
         return;
       }
 
-      // Stage 5: Provenance minting - OPTIMIZED for performance
+      // Stage 5: Provenance minting
       const mintIndex = stages.findIndex(s => s.id === 'provenance-minting');
       setCurrentStage(mintIndex);
       setStages(prev => prev.map((s, i) => i === mintIndex ? { ...s, status: 'processing', error: undefined } : s));
@@ -644,93 +669,64 @@ const UploadVerificationModal: React.FC<UploadVerificationModalProps> = ({
           mediaIdUse = ensured.media;
           manifestIdUse = ensured.manifest;
         }
-
-        // Prepare badge and certificate in parallel for better performance
-        const [badgeBlob, certificateBlob] = await Promise.all([
-          renderBadgeBase(),
-          renderCertificateImage(walletAddress, mediaIdUse, manifestIdUse, (attestation?.contentHashHex || verificationDigest || null))
-        ]);
-
-        // Set preview URLs immediately for better UX
-        setBadgePreviewUrl(URL.createObjectURL(badgeBlob));
-        setCertificatePreviewUrl(URL.createObjectURL(certificateBlob));
-
-        // Upload both badge and certificate to Walrus in parallel
-        const [badgePut, certificatePut] = await Promise.all([
-          putWalrus(new Uint8Array(await badgeBlob.arrayBuffer()), 3),
-          putWalrus(new Uint8Array(await certificateBlob.arrayBuffer()), 3)
-        ]);
-
-        const bId = badgePut.json?.newlyCreated?.blobObject?.blobId || badgePut.json?.newlyCreated?.blobId || badgePut.json?.alreadyCertified?.blobId || badgePut.json?.blobId;
-        const cId = certificatePut.json?.newlyCreated?.blobObject?.blobId || certificatePut.json?.newlyCreated?.blobId || certificatePut.json?.alreadyCertified?.blobId || certificatePut.json?.blobId;
-
-        if (!bId || !cId) throw new Error('Walrus blob IDs not found');
-
+        const badgeBlob = await renderBadgeBase();
+        const badgeUrl = URL.createObjectURL(badgeBlob);
+        setBadgePreviewUrl(badgeUrl);
+        const buf = new Uint8Array(await badgeBlob.arrayBuffer());
+        const put = await putWalrus(buf, 5);
+        const j = put.json;
+        const bId = j?.newlyCreated?.blobObject?.blobId || j?.alreadyCertified?.blobId || j?.blobId;
+        if (!bId) throw new Error('Badge Walrus blob ID not found');
         setBadgeWalrusId(bId);
-        setCertificateWalrusId(cId);
         dispatch(setBadgeWalrusIdGlobal(bId));
 
-        // Create single transaction for both mints to reduce blockchain interactions
-        const tx = new Transaction();
-        const ownerAddr = (currentAccount?.address || walletAddress);
-        
-        // Badge metadata
-        const aggregatorLink = `${aggregatorUrl}/v1/blobs/${bId}`;
-        const badgeUID = (crypto?.randomUUID?.() || `badge_${Date.now()}_${Math.random().toString(36).slice(2,6)}`);
-        const badgeMeta = { 
-          ownerAddress: walletAddress, 
-          ownerUID: badgeUID, 
-          mediaBlobId: mediaIdUse, 
-          manifestBlobId: manifestIdUse, 
-          verificationDigest: verificationDigest, 
-          attestationHash: attestation?.contentHashHex || '', 
-          badgeBlobId: bId, 
-          badgeUrl: aggregatorLink, 
-          sealEncryption 
-        };
+        try {
+          const tx = new Transaction();
+          const aggregatorLink = `${aggregatorUrl}/v1/blobs/${bId}`;
+          const badgeUID = (crypto?.randomUUID?.() || `badge_${Date.now()}_${Math.random().toString(36).slice(2,6)}`);
+          const meta = { ownerAddress: walletAddress, ownerUID: badgeUID, mediaBlobId: mediaIdUse, manifestBlobId: manifestIdUse, verificationDigest: verificationDigest, attestationHash: attestation?.contentHashHex || '', badgeBlobId: bId, badgeUrl: aggregatorLink, sealEncryption };
+          tx.moveCall({
+            target: `${VERILENS_PACKAGE_ID}::verilens_oracle::mint_provenance_nft`,
+            arguments: [
+              tx.pure.address(walletAddress),
+              tx.pure.string('Verilens Provenance Badge'),
+              tx.pure.string(aggregatorLink),
+              tx.pure.string(JSON.stringify(meta))
+            ]
+          });
+          const res: any = await executeTransactionWithTimeout(tx, 60000);
+          const digest = res?.digest || res?.effects?.transactionDigest || res?.data?.digest || '';
+          if (digest) setMintDigest(digest);
+        } catch {}
 
-        // Certificate metadata
+        let cId = certificateWalrusId || null;
+        if (!cId) {
+          const certBlob = await renderCertificateImage(walletAddress, mediaIdUse, manifestIdUse, (attestation?.contentHashHex || verificationDigest || null));
+          const certBuf = new Uint8Array(await certBlob.arrayBuffer());
+          const putCert = await fetch(`${publisherUrl}/v1/blobs?epochs=5`, { method: 'PUT', body: new Blob([new Uint8Array(certBuf.buffer as ArrayBuffer)]), headers: { 'Content-Type': 'application/octet-stream' } });
+          if (!putCert.ok) throw new Error('Certificate upload failed');
+          const jc = await putCert.json();
+          cId = jc?.newlyCreated?.blobObject?.blobId || jc?.alreadyCertified?.blobId || jc?.blobId;
+          if (!cId) throw new Error('Certificate Walrus blob ID not found');
+          setCertificateWalrusId(cId);
+        }
+        const tx2 = new Transaction();
         const certLink = `${aggregatorUrl}/v1/blobs/${cId}`;
-        const certMeta = { 
-          type: 'certificate', 
-          ownerAddress: ownerAddr, 
-          mediaBlobId: mediaIdUse, 
-          manifestBlobId: manifestIdUse, 
-          verificationDigest: verificationDigest, 
-          attestationHash: attestation?.contentHashHex || '', 
-          certificateBlobId: cId, 
-          certificateUrl: certLink 
-        };
-
-        // Mint both NFTs in a single transaction
-        tx.moveCall({
-          target: `${VERILENS_PACKAGE_ID}::verilens_oracle::mint_provenance_nft`,
-          arguments: [
-            tx.pure.address(walletAddress),
-            tx.pure.string('Verilens Provenance Badge'),
-            tx.pure.string(aggregatorLink),
-            tx.pure.string(JSON.stringify(badgeMeta))
-          ]
-        });
-
-        tx.moveCall({
+        const ownerAddr = (currentAccount?.address || walletAddress);
+        const certMeta = { type: 'certificate', ownerAddress: ownerAddr, mediaBlobId: mediaIdUse, manifestBlobId: manifestIdUse, verificationDigest: verificationDigest, attestationHash: attestation?.contentHashHex || '', certificateBlobId: cId, certificateUrl: certLink };
+        tx2.moveCall({
           target: `${VERILENS_PACKAGE_ID}::verilens_oracle::mint_certificate_nft`,
           arguments: [
-            tx.pure.address(ownerAddr),
-            tx.pure.string('Verilens Provenance Certificate'),
-            tx.pure.string(certLink),
-            tx.pure.string(JSON.stringify(certMeta))
+            tx2.pure.address(ownerAddr),
+            tx2.pure.string('Verilens Provenance Certificate'),
+            tx2.pure.string(certLink),
+            tx2.pure.string(JSON.stringify(certMeta))
           ]
         });
-
-        // Execute single transaction for both mints
-        const result: any = await signAndExecuteTransaction({ transaction: tx });
-        const digest = result?.digest || result?.effects?.transactionDigest || result?.data?.digest || '';
-        
-        if (digest) {
-          setMintDigest(digest);
-          setCertificateMintDigest(digest); // Same transaction for both
-        }
+        const res2: any = await executeTransactionWithTimeout(tx2, 60000);
+        const digest2 = res2?.digest || res2?.effects?.transactionDigest || res2?.data?.digest || '';
+        if (!digest2) throw new Error('Certificate mint failed: no transaction digest');
+        setCertificateMintDigest(digest2);
 
         setStages(prev => prev.map((s, i) => i === mintIndex ? { ...s, status: 'completed' } : s));
         
@@ -745,7 +741,9 @@ const UploadVerificationModal: React.FC<UploadVerificationModalProps> = ({
           sealEncryption
         };
         setCertificate(finalCertificate);
-        onComplete(finalCertificate);
+        if (!stayOpenOnComplete) {
+          onComplete(finalCertificate);
+        }
       } catch (mintingErr: any) {
         setStages(prev => prev.map((s, i) => i === mintIndex ? { ...s, status: 'failed', error: mintingErr?.message || 'Provenance minting failed' } : s));
         setHasFailed(true);
