@@ -74,7 +74,7 @@ const Header = () => {
             </motion.div>
             <motion.div whileHover={{ scale: 1.05 }}>
               <Link href="/about" className="text-secondary hover:text-primary transition-colors">
-                ABOUT US
+                ABOUT 
               </Link>
             </motion.div>
             <div className="relative group"> {/* Parent container for dropdown */}
