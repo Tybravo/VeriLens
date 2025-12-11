@@ -93,16 +93,20 @@ const Header = () => {
                 <Link href="/ecosystem/developer" className="block px-4 py-2 hover:bg-primary/20 rounded-md">Developer</Link>
               </div>
             </div>
-            <motion.div whileHover={{ scale: 1.05 }}>
-              <Link href="/creator/generate-manifest?close=1" className="text-secondary hover:text-primary transition-colors">
-                INSTANCES
-              </Link>
-            </motion.div>
-            {/* <motion.div whileHover={{ scale: 1.05 }}>
-              <Link href="/ambassadors" className="text-secondary hover:text-primary transition-colors">
-                AMBASSADORS
-              </Link>
-            </motion.div> */}
+            <div className="relative group">
+              <motion.div whileHover={{ scale: 1.05 }}>
+                <Link href="#" className="text-secondary hover:text-primary transition-colors flex items-center">
+                  INSTANCES
+                  <svg className="w-4 h-4 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7"></path>
+                  </svg>
+                </Link>
+              </motion.div>
+              <div className="absolute hidden group-hover:block bg-darkblue-light text-secondary-light rounded-lg shadow-lg py-2 px-4 w-48 z-50 top-full left-0">
+                <Link href="/creator/view-content" className="block px-4 py-2 hover:bg-primary/20 rounded-md">ASSETS</Link>
+                <Link href="/creator/generate-manifest?close=1" className="block px-4 py-2 hover:bg-primary/20 rounded-md">USE CASES</Link>
+              </div>
+            </div>
             <motion.div whileHover={{ scale: 1.05 }}>
               <Link href="/pricing" className="text-secondary hover:text-primary transition-colors">
                 PRICING
